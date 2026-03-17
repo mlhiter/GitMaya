@@ -247,7 +247,19 @@ $ pip install -r requirements.txt
 如果您使用 `pdm`
 
 ```fish
-$ pdm install
+$ PDM_IGNORE_ACTIVE_VENV=1 pdm install
+```
+
+如果您是通过 `pyapp`/`pipx` 等方式安装的 `pdm`，建议一次性将以下配置写入 shell 配置文件（如 `~/.zshrc`）：
+
+```fish
+$ export PDM_IGNORE_ACTIVE_VENV=1
+```
+
+可通过以下命令确认项目使用的是本地虚拟环境解释器（应指向项目目录下的 `.venv`）：
+
+```fish
+$ pdm info --python
 ```
 
 激活虚拟环境：

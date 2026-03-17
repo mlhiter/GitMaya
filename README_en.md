@@ -279,7 +279,19 @@ $ pip install -r requirements.txt
 If you are using `pdm`
 
 ```fish
-$ pdm install
+$ PDM_IGNORE_ACTIVE_VENV=1 pdm install
+```
+
+If your `pdm` is installed via `pyapp`/`pipx`, it is recommended to add this once to your shell profile (for example `~/.zshrc`):
+
+```fish
+$ export PDM_IGNORE_ACTIVE_VENV=1
+```
+
+You can verify the project interpreter with the command below (it should point to the project `.venv`):
+
+```fish
+$ pdm info --python
 ```
 
 Activate the virtual environment:
