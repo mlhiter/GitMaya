@@ -3,9 +3,12 @@
 
 [metadata]
 groups = ["default"]
-strategy = ["cross_platform"]
-lock_version = "4.4.1"
-content_hash = "sha256:3f77a0614bd6fd5cc02be2298de7e1530b87ae86b8335e779b5f6716dd434261"
+strategy = []
+lock_version = "4.5.0"
+content_hash = "sha256:f4deea86eddac2bfa38bf53340bb95d4a5c31f0de410c81799806459e929e225"
+
+[[metadata.targets]]
+requires_python = ">=3.10"
 
 [[package]]
 name = "amqp"
@@ -745,7 +748,7 @@ version = "2.0.25"
 requires_python = ">=3.7"
 summary = "Database Abstraction Library"
 dependencies = [
-    "greenlet!=0.4.17; platform_machine == \"aarch64\" or (platform_machine == \"ppc64le\" or (platform_machine == \"x86_64\" or (platform_machine == \"amd64\" or (platform_machine == \"AMD64\" or (platform_machine == \"win32\" or platform_machine == \"WIN32\")))))",
+    "greenlet!=0.4.17; platform_machine == \"win32\" or platform_machine == \"WIN32\" or platform_machine == \"AMD64\" or platform_machine == \"amd64\" or platform_machine == \"x86_64\" or platform_machine == \"ppc64le\" or platform_machine == \"aarch64\"",
     "typing-extensions>=4.6.0",
 ]
 files = [
