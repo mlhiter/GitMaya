@@ -576,10 +576,9 @@ def save_team_contact(user_id, first_name, last_name, email, role, newsletter):
     return contact_id
 
 
-def get_code_users_by_openid(users):
-    code_users = {
-        openid: (code_user_id, code_user_name)
-        for openid, code_user_id, code_user_name in db.session.query(
+def get_code_users_by_openid(users, team_id=None):
+    query = (
+        db.session.query(
             IMUser.openid,
             CodeUser.user_id,
             CodeUser.name,
@@ -593,12 +592,18 @@ def get_code_users_by_openid(users):
             IMUser.id == TeamMember.im_user_id,
         )
         .filter(IMUser.openid.in_(users))
-        .all()
+    )
+    if team_id:
+        query = query.filter(TeamMember.team_id == team_id)
+
+    code_users = {
+        openid: (code_user_id, code_user_name)
+        for openid, code_user_id, code_user_name in query.all()
     }
     return code_users
 
 
-def get_assignees_by_openid(users):
-    code_users = get_code_users_by_openid(users)
+def get_assignees_by_openid(users, team_id=None):
+    code_users = get_code_users_by_openid(users, team_id=team_id)
     assignees = [code_users[openid][1] for openid in users if openid in code_users]
     return assignees

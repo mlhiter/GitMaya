@@ -729,7 +729,7 @@ def change_pull_request_assignees(
     github_app, team, repo, pr, _, _ = _get_github_app(
         app_id, message_id, content, data, *args, **kwargs
     )
-    assignees = get_assignees_by_openid(users)
+    assignees = get_assignees_by_openid(users, team_id=team.id)
     if len(assignees) == 0:
         return send_pull_request_failed_tip(
             "更新 Pull Request 失败", app_id, message_id, content, data, *args, **kwargs
@@ -760,7 +760,7 @@ def change_pull_request_reviewer(
         app_id, message_id, content, data, *args, **kwargs
     )
     # 这里调用get_assignees_by_openid，拿到的结果是一样的
-    reviewers = get_assignees_by_openid(users)
+    reviewers = get_assignees_by_openid(users, team_id=team.id)
     if len(reviewers) == 0:
         return send_pull_request_failed_tip(
             "更新 Pull Request 失败", app_id, message_id, content, data, *args, **kwargs

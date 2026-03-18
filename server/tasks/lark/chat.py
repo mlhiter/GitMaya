@@ -303,7 +303,7 @@ def create_issue(
 
     openid = data["event"]["sender"]["sender_id"]["open_id"]
     # 这里连三个表查询，所以一次性都查出来
-    code_users = get_code_users_by_openid([openid] + users)
+    code_users = get_code_users_by_openid([openid] + users, team_id=team.id)
 
     import tasks
 
@@ -467,7 +467,7 @@ def sync_issue(
         )
     openid = data["event"]["sender"]["sender_id"]["open_id"]
     # 这里连三个表查询，所以一次性都查出来
-    code_users = get_code_users_by_openid([openid])
+    code_users = get_code_users_by_openid([openid], team_id=team.id)
 
     import tasks
 

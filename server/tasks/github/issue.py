@@ -28,6 +28,12 @@ def on_issue_comment(data: dict) -> list:
     if event.comment.performed_via_github_app and (
         event.comment.performed_via_github_app.name
     ).replace(" ", "-") == (os.environ.get("GITHUB_APP_NAME")).replace(" ", "-"):
+        app.logger.info(
+            "Skip issue_comment from self app: action=%s repo=%s issue=%s",
+            event.action,
+            event.repository.id,
+            event.issue.number,
+        )
         return []
 
     action = event.action
@@ -70,7 +76,18 @@ def on_issue_comment_created(event_dict: dict | list | None) -> list:
                 task = send_pull_request_comment.delay(
                     pr.id, event.comment.body, event.sender.login
                 )
+                app.logger.info(
+                    "Dispatch pull_request comment sync: repo=%s pr=%s task=%s",
+                    repo.id,
+                    pr.pull_request_number,
+                    task.id,
+                )
                 return [task.id]
+            app.logger.warning(
+                "Skip issue_comment: pull request record not found. repo=%s number=%s",
+                repo.id,
+                event.issue.number,
+            )
         else:
             issue = (
                 db.session.query(Issue)
@@ -84,7 +101,22 @@ def on_issue_comment_created(event_dict: dict | list | None) -> list:
                 task = send_issue_comment.delay(
                     issue.id, event.comment.body, event.sender.login
                 )
+                app.logger.info(
+                    "Dispatch issue comment sync: repo=%s issue=%s task=%s",
+                    repo.id,
+                    issue.issue_number,
+                    task.id,
+                )
                 return [task.id]
+            app.logger.warning(
+                "Skip issue_comment: issue record not found. repo=%s number=%s",
+                repo.id,
+                event.issue.number,
+            )
+    else:
+        app.logger.warning(
+            "Skip issue_comment: repo not found for repo_id=%s", event.repository.id
+        )
 
     return []
 

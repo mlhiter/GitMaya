@@ -405,29 +405,60 @@ def send_issue_comment(issue_id, comment, user_name: str):
         comment: str
     """
     issue = db.session.query(Issue).filter(Issue.id == issue_id).first()
-    if issue:
-        repo = db.session.query(Repo).filter(Repo.id == issue.repo_id).first()
-        if not repo:
-            return False
-        chat_group = (
-            db.session.query(ChatGroup)
-            .filter(
-                ChatGroup.id == repo.chat_group_id,
-            )
-            .first()
+    if not issue:
+        logging.warning("send_issue_comment skipped: issue not found issue_id=%s", issue_id)
+        return False
+
+    repo = db.session.query(Repo).filter(Repo.id == issue.repo_id).first()
+    if not repo:
+        logging.warning(
+            "send_issue_comment skipped: repo not found issue_id=%s repo_id=%s",
+            issue_id,
+            issue.repo_id,
         )
-        if chat_group and issue.message_id:
-            bot, _ = get_bot_by_application_id(chat_group.im_application_id)
-            is_private = repo.extra.get("private", False)
-            # 替换 comment 中的图片 url 为 image_key
-            comment = replace_images_with_keys(comment, bot, is_private=is_private)
-            # 统一用富文本回答, 支持图片、at
-            content = gen_comment_post_message(user_name, comment)
-            result = bot.reply(
-                issue.message_id,
-                FeishuPostMessage(*content),
-            ).json()
-            return result
+        return False
+
+    chat_group = (
+        db.session.query(ChatGroup)
+        .filter(
+            ChatGroup.id == repo.chat_group_id,
+        )
+        .first()
+    )
+    if not chat_group:
+        logging.warning(
+            "send_issue_comment skipped: chat_group not found repo_id=%s chat_group_id=%s",
+            repo.id,
+            repo.chat_group_id,
+        )
+        return False
+
+    if not issue.message_id:
+        logging.warning(
+            "send_issue_comment skipped: issue.message_id empty issue_id=%s issue_number=%s",
+            issue.id,
+            issue.issue_number,
+        )
+        return False
+
+    bot, _ = get_bot_by_application_id(chat_group.im_application_id)
+    is_private = repo.extra.get("private", False)
+    # 替换 comment 中的图片 url 为 image_key
+    comment = replace_images_with_keys(comment, bot, is_private=is_private)
+    # 统一用富文本回答, 支持图片、at
+    content = gen_comment_post_message(user_name, comment)
+    result = bot.reply(
+        issue.message_id,
+        FeishuPostMessage(*content),
+    ).json()
+    logging.info(
+        "send_issue_comment done: issue_id=%s issue_number=%s message_id=%s result=%r",
+        issue.id,
+        issue.issue_number,
+        issue.message_id,
+        result,
+    )
+    return result
     return False
 
 
@@ -881,10 +912,16 @@ def change_issue_assignees(users, app_id, message_id, content, data, *args, **kw
     github_app, team, repo, issue, _, _ = _get_github_app(
         app_id, message_id, content, data, *args, **kwargs
     )
-    assignees = get_assignees_by_openid(users)
+    assignees = get_assignees_by_openid(users, team_id=team.id)
     if len(assignees) == 0:
         return send_issue_failed_tip(
-            "更新 issue 失败", app_id, message_id, content, data, *args, **kwargs
+            "更新 issue 失败：未找到负责人映射，请先 /bind 或在团队成员页绑定 GitHub 与飞书账号",
+            app_id,
+            message_id,
+            content,
+            data,
+            *args,
+            **kwargs,
         )
     response = github_app.update_issue(
         team.name,
@@ -893,8 +930,34 @@ def change_issue_assignees(users, app_id, message_id, content, data, *args, **kw
         assignees=assignees,
     )
     if "id" not in response:
+        msg = (
+            response.get("message")
+            if isinstance(response, dict)
+            else "GitHub API 调用失败"
+        )
+        errors = (
+            response.get("errors")
+            if isinstance(response, dict) and response.get("errors")
+            else None
+        )
+        detail = f"{msg}（{errors}）" if errors else msg
+        logging.error(
+            "change_issue_assignees failed: issue=%s repo=%s/%s users=%s assignees=%s response=%r",
+            issue.issue_number,
+            team.name,
+            repo.name,
+            users,
+            assignees,
+            response,
+        )
         return send_issue_failed_tip(
-            "更新 issue 失败", app_id, message_id, content, data, *args, **kwargs
+            f"更新 issue 失败：{detail}",
+            app_id,
+            message_id,
+            content,
+            data,
+            *args,
+            **kwargs,
         )
     else:
         assignees_name = "、".join(assignees)
