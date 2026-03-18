@@ -135,6 +135,11 @@ def on_repository_created(event_dict: dict | list | None) -> list:
         )
         .first()
     )
+    if im_application is None:
+        app.logger.info(
+            f"Team {team.id} has no im application configured, skip repo detect message"
+        )
+        return []
 
     task_ids = []
     for bind_user in admin_lark_bind_users:

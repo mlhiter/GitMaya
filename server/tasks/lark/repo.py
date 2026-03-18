@@ -506,6 +506,14 @@ def update_repo_info(repo_id: str) -> dict | None:
         )
         .first()
     )
+    if not repo:
+        app.logger.error(f"update_repo_info: Repo {repo_id} not found")
+        return None
+
+    # 仓库还未绑定群消息时，不需要更新飞书卡片
+    if not repo.message_id:
+        app.logger.info(f"update_repo_info: Repo {repo_id} has no message_id, skip")
+        return None
 
     code_application = (
         db.session.query(CodeApplication)
@@ -514,6 +522,11 @@ def update_repo_info(repo_id: str) -> dict | None:
         )
         .first()
     )
+    if not code_application:
+        app.logger.error(
+            f"update_repo_info: CodeApplication {repo.application_id} not found"
+        )
+        return None
 
     team = (
         db.session.query(Team)
@@ -522,6 +535,9 @@ def update_repo_info(repo_id: str) -> dict | None:
         )
         .first()
     )
+    if not team:
+        app.logger.error(f"update_repo_info: Team {code_application.team_id} not found")
+        return None
 
     im_application = (
         db.session.query(IMApplication)
@@ -530,26 +546,33 @@ def update_repo_info(repo_id: str) -> dict | None:
         )
         .first()
     )
-
-    if repo:
-        bot, _ = get_bot_by_application_id(im_application.app_id)
-
-        repo_url = f"https://github.com/{team.name}/{repo.name}"
-        message = RepoInfo(
-            repo_url=repo_url,
-            repo_name=repo.name,
-            repo_description=repo.description,
-            repo_topic=repo.extra.get("topics", []),
-            homepage=repo.extra.get("homepage", None),
-            open_issues_count=repo.extra.get("open_issues_count", 0),
-            stargazers_count=repo.extra.get("stargazers_count", 0),
-            forks_count=repo.extra.get("forks_count", 0),
-            visibility="私有仓库" if repo.extra.get("private") else "公开仓库",
-            archived=repo.extra.get("archived", False),
-            updated=repo.extra.get("updated_at", ""),
+    if not im_application:
+        app.logger.info(
+            f"update_repo_info: Team {team.id} has no im application configured, skip"
         )
-
-        return bot.update(message_id=repo.message_id, content=message).json()
-    else:
-        app.logger.error(f"update_repo_info: Repo {repo_id} not found")
         return None
+
+    bot, _ = get_bot_by_application_id(im_application.app_id)
+    if not bot:
+        app.logger.error(
+            f"update_repo_info: failed to build bot for app_id={im_application.app_id}"
+        )
+        return None
+
+    extra = repo.extra or {}
+    repo_url = f"https://github.com/{team.name}/{repo.name}"
+    message = RepoInfo(
+        repo_url=repo_url,
+        repo_name=repo.name,
+        repo_description=repo.description,
+        repo_topic=extra.get("topics", []),
+        homepage=extra.get("homepage", None),
+        open_issues_count=extra.get("open_issues_count", 0),
+        stargazers_count=extra.get("stargazers_count", 0),
+        forks_count=extra.get("forks_count", 0),
+        visibility="私有仓库" if extra.get("private") else "公开仓库",
+        archived=extra.get("archived", False),
+        updated=extra.get("updated_at", ""),
+    )
+
+    return bot.update(message_id=repo.message_id, content=message).json()
