@@ -1,5 +1,6 @@
 import argparse
 import logging
+import re
 from urllib.parse import urlparse
 
 import tasks
@@ -34,6 +35,28 @@ class GitMayaLarkParser(object):
             "/reopen",
             "@GitMaya",
         ]
+
+    def _normalize_command(self, command: str) -> str:
+        if not isinstance(command, str):
+            return command
+
+        command = command.replace("\u3000", " ").strip()
+        if not command:
+            return command
+
+        # Feishu 群聊中经常会出现前置 @机器人，先剥离再做命令解析。
+        while command:
+            mention_tag = re.match(r"^<at\b[^>]*>.*?</at>\s*", command)
+            if mention_tag:
+                command = command[mention_tag.end() :].lstrip()
+                continue
+
+            parts = command.split(None, 1)
+            if parts and parts[0].startswith("@"):
+                command = parts[1].lstrip() if len(parts) > 1 else ""
+                continue
+            break
+        return command
 
     def init_subparsers(self):
         parser_help = self.subparsers.add_parser("/help")
@@ -185,7 +208,7 @@ class GitMayaLarkParser(object):
         if not param.repo_url and not param.chat_name:
             logging.error("return")
             tasks.send_manage_fail_message.delay(
-                "repo_url and chat_name is empty",
+                "参数缺失。用法：/match https://github.com/<org>/<repo> [群名]",
                 *args,
                 **kwargs,
             )
@@ -532,6 +555,10 @@ class GitMayaLarkParser(object):
 
     def parse_args(self, command, *args, **kwargs):
         try:
+            command = self._normalize_command(command)
+            if not command:
+                raise argparse.ArgumentError(None, "empty command")
+
             # edit可能是多行的，第一行可能没有空格
             if "/edit" == command[:5]:
                 command = "/edit " + command[5:]

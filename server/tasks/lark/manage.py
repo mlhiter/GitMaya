@@ -30,6 +30,104 @@ from utils.lark.repo_manual import RepoManual
 from .base import build_github_oauth_url, get_bot_by_application_id
 
 
+def _get_chat_meta(bot, chat_id):
+    if not chat_id:
+        return "", "", {}
+    try:
+        result = bot.get(f"{bot.host}/open-apis/im/v1/chats/{chat_id}").json()
+        data = result.get("data", {})
+        # 兼容不同版本字段
+        chat = data.get("chat", data) if isinstance(data, dict) else {}
+        return chat.get("name", ""), chat.get("description", ""), result
+    except Exception as e:
+        logging.error(e)
+    return "", "", {}
+
+
+def _is_chat_owner_or_manager(bot, chat_id, open_id):
+    if not chat_id or not open_id:
+        return False
+
+    _, _, chat_raw = _get_chat_meta(bot, chat_id)
+    data = chat_raw.get("data", {}) if isinstance(chat_raw, dict) else {}
+    chat = data.get("chat", data) if isinstance(data, dict) else {}
+
+    owners = set()
+    owner_candidates = [
+        chat.get("owner_id"),
+        chat.get("owner_open_id"),
+        data.get("owner_id"),
+        data.get("owner_open_id"),
+    ]
+    owner_obj = chat.get("owner", {})
+    if isinstance(owner_obj, dict):
+        owner_candidates.extend(
+            [
+                owner_obj.get("id"),
+                owner_obj.get("open_id"),
+            ]
+        )
+    for candidate in owner_candidates:
+        if candidate:
+            owners.add(candidate)
+
+    managers = set()
+    manager_candidates = [
+        chat.get("user_manager_id_list"),
+        chat.get("manager_id_list"),
+        chat.get("admin_id_list"),
+        data.get("user_manager_id_list"),
+        data.get("manager_id_list"),
+        data.get("admin_id_list"),
+    ]
+    for values in manager_candidates:
+        if isinstance(values, list):
+            for v in values:
+                if isinstance(v, str) and v:
+                    managers.add(v)
+                elif isinstance(v, dict):
+                    managers.update(
+                        [
+                            x
+                            for x in [v.get("id"), v.get("open_id"), v.get("user_id")]
+                            if x
+                        ]
+                    )
+
+    if open_id in owners or open_id in managers:
+        return True
+
+    # 回退到成员列表做角色判断，避免群详情字段差异导致误判
+    try:
+        members_raw = bot.get(
+            f"{bot.host}/open-apis/im/v1/chats/{chat_id}/members"
+            "?member_id_type=open_id&page_size=200"
+        ).json()
+        items = members_raw.get("data", {}).get("items", [])
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            member_id = item.get("member_id") or item.get("open_id") or item.get("id")
+            if member_id != open_id:
+                continue
+
+            if item.get("is_owner") or item.get("is_admin"):
+                return True
+
+            role = str(
+                item.get("role")
+                or item.get("chat_role")
+                or item.get("role_type")
+                or ""
+            ).lower()
+            if role in {"owner", "admin", "manager"}:
+                return True
+    except Exception as e:
+        logging.error(e)
+
+    return False
+
+
 @celery.task()
 def send_welcome_message(app_id, event_id, event, message, *args, **kwargs):
     bot, application = get_bot_by_application_id(app_id)
@@ -225,8 +323,19 @@ def send_manage_fail_message(
     if not bot:
         bot, _ = get_bot_by_application_id(app_id)
     message = ManageFaild(content=content)
+    chat_type = (
+        raw_message.get("event", {}).get("message", {}).get("chat_type")
+        if isinstance(raw_message, dict)
+        else None
+    )
+    if chat_type == "group" and message_id:
+        return bot.reply(message_id, message).json()
     open_id = raw_message["event"]["sender"]["sender_id"].get("open_id", None)
-    return bot.send(open_id, message).json()
+    if open_id:
+        return bot.send(open_id, message).json()
+    if message_id:
+        return bot.reply(message_id, message).json()
+    return False
 
 
 @celery.task()
@@ -243,8 +352,19 @@ def send_manage_success_message(
     if not bot:
         bot, _ = get_bot_by_application_id(app_id)
     message = ManageSuccess(content=content)
+    chat_type = (
+        raw_message.get("event", {}).get("message", {}).get("chat_type")
+        if isinstance(raw_message, dict)
+        else None
+    )
+    if chat_type == "group" and message_id:
+        return bot.reply(message_id, message).json()
     open_id = raw_message["event"]["sender"]["sender_id"].get("open_id", None)
-    return bot.send(open_id, message).json()
+    if open_id:
+        return bot.send(open_id, message).json()
+    if message_id:
+        return bot.reply(message_id, message).json()
+    return False
 
 
 @celery.task()
@@ -296,6 +416,83 @@ def create_chat_group_for_repo(
         return send_manage_fail_message(
             "找不到对应的项目", app_id, message_id, *args, bot=bot, **kwargs
         )
+
+    raw_message = args[1] if len(args) > 1 and isinstance(args[1], dict) else {}
+    event = raw_message.get("event", {})
+    event_message = event.get("message", {})
+    chat_type = event_message.get("chat_type")
+    chat_id = event_message.get("chat_id", "")
+    sender_open_id = event.get("sender", {}).get("sender_id", {}).get("open_id", "")
+
+    # 在群里执行 `/match <repo_url>`：直接把当前群绑定到仓库
+    if chat_type == "group" and not chat_name:
+        allow_bind = _is_chat_owner_or_manager(bot, chat_id, sender_open_id)
+        if not allow_bind:
+            return send_manage_fail_message(
+                "只有群管理员/群主可以在群里执行 /match 绑定仓库",
+                app_id,
+                message_id,
+                *args,
+                bot=bot,
+                **kwargs,
+            )
+
+        if not chat_id:
+            return send_manage_fail_message(
+                "无法识别当前群，请稍后重试",
+                app_id,
+                message_id,
+                *args,
+                bot=bot,
+                **kwargs,
+            )
+
+        current_chat_group = (
+            db.session.query(ChatGroup)
+            .filter(
+                ChatGroup.im_application_id == application.id,
+                ChatGroup.chat_id == chat_id,
+                ChatGroup.status == 0,
+            )
+            .first()
+        )
+        if not current_chat_group:
+            current_chat_name, current_chat_desc, chat_extra = _get_chat_meta(bot, chat_id)
+            current_chat_group = ChatGroup(
+                id=ObjID.new_id(),
+                im_application_id=application.id,
+                chat_id=chat_id,
+                name=current_chat_name or "项目群",
+                description=current_chat_desc or "",
+                extra=chat_extra,
+            )
+            db.session.add(current_chat_group)
+            db.session.flush()
+
+        if repo.chat_group_id != current_chat_group.id:
+            db.session.query(Repo).filter(Repo.id == repo.id).update(
+                dict(chat_group_id=current_chat_group.id)
+            )
+            db.session.commit()
+
+        bind_result = send_repo_to_chat_group(repo.id, app_id, chat_id)
+        if not isinstance(bind_result, list):
+            bind_result = [bind_result]
+
+        content = (
+            f"已将当前群「{current_chat_group.name}」绑定到仓库 "
+            f"https://github.com/{team.name}/{repo.name}"
+        )
+        return bind_result + [
+            send_manage_success_message(
+                content,
+                app_id,
+                message_id,
+                *args,
+                bot=bot,
+                **kwargs,
+            )
+        ]
 
     chat_group = (
         db.session.query(ChatGroup)

@@ -62,7 +62,13 @@ def send_chat_manual(app_id, message_id, content, data, *args, **kwargs):
     )
     if not chat_group:
         return send_chat_failed_tip(
-            "找不到项目群", app_id, message_id, content, data, *args, **kwargs
+            "当前群还没绑定仓库。请在群里执行：/match https://github.com/<org>/<repo>",
+            app_id,
+            message_id,
+            content,
+            data,
+            *args,
+            **kwargs,
         )
     repo = (
         db.session.query(Repo)
@@ -219,7 +225,13 @@ def create_issue(
     )
     if not chat_group:
         return send_chat_failed_tip(
-            "找不到项目群", app_id, message_id, content, data, *args, **kwargs
+            "当前群还没绑定仓库。请先在群里执行：/match https://github.com/<org>/<repo>",
+            app_id,
+            message_id,
+            content,
+            data,
+            *args,
+            **kwargs,
         )
     repos = []
     try:
