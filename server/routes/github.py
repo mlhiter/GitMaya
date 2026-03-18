@@ -50,6 +50,21 @@ def _send_lark_oauth_success(
     bot.send(open_id, message, receive_id_type="open_id").json()
 
 
+def _send_lark_oauth_failed(app_id: str, open_id: str, content: str) -> None:
+    from tasks.lark.base import get_bot_by_application_id
+    from utils.lark.manage_fail import ManageFaild
+
+    bot, application = get_bot_by_application_id(app_id)
+    if not bot or not application:
+        app.logger.warning(
+            f"Skip lark oauth failure notify, app_id not found: app_id={app_id}"
+        )
+        return
+
+    message = ManageFaild(content=content, title="🔐 GitHub 绑定失败")
+    bot.send(open_id, message, receive_id_type="open_id").json()
+
+
 def _bind_lark_user_to_team_member(app_id: str, open_id: str, user_id: str) -> bool:
     """Bind lark open_id to current github user inside team_member.
 
@@ -278,15 +293,13 @@ def github_register():
 
     # 通过 code 注册；如果 user 已经存在，则一样会返回 user_id
     user_id = register(code)
-    # if user_id is None:
-    #     return jsonify({"message": "Failed to register."}), 500
-
-    # 保存用户注册状态
+    state = request.args.get("state")
     if user_id:
+        # 保存用户注册状态
         session["user_id"] = user_id
         # 默认是会话级别的session，关闭浏览器直接就失效了
         session.permanent = True
-        state = request.args.get("state")
+
         if state:
             try:
                 payload = _decode_oauth_state(state)
@@ -302,18 +315,47 @@ def github_register():
                     _send_lark_oauth_success(app_id, open_id, success_text)
             except Exception as e:
                 app.logger.warning(f"Failed to send lark oauth success message: {e}")
+    elif state:
+        # 来自飞书绑定流程，注册失败时给出明确回执，避免用户无感知失败
+        try:
+            payload = _decode_oauth_state(state)
+            app_id = payload.get("app_id")
+            open_id = payload.get("open_id")
+            if app_id and open_id:
+                _send_lark_oauth_failed(
+                    app_id,
+                    open_id,
+                    "GitHub 登录失败或授权码已过期，请在飞书里重新执行 /bind 并重试。",
+                )
+        except Exception as e:
+            app.logger.warning(f"Failed to send lark oauth failure message: {e}")
 
     return make_response(
         """
 <script>
 try {
   window.opener.postMessage("""
-        + json.dumps(dict(event="oauth", data={"user_id": user_id}))
+        + json.dumps(
+            dict(
+                event="oauth",
+                data={
+                    "user_id": user_id,
+                    "ok": bool(user_id),
+                    "error": None if user_id else "oauth_failed",
+                },
+            )
+        )
         + """, '*')
   setTimeout(() => window.close(), 3000)
 } catch(e) {
   console.error(e)
-  location.replace('/api/account')
+  """
+        + (
+            "location.replace('/api/account')"
+            if user_id
+            else "document.body.innerText='GitHub 登录失败，请返回飞书执行 /bind 后重试。'"
+        )
+        + """
 }
 </script>
                                      """,

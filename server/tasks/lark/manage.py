@@ -393,7 +393,10 @@ def send_github_bind_message(app_id, message_id, data, raw_message, *args, **kwa
 
     host = os.environ.get("DOMAIN")
     oauth_url = build_github_oauth_url(host, app_id, open_id)
-    message = ManageFaild(content=f"[请点击绑定 GitHub 账号]({oauth_url})")
+    message = ManageFaild(
+        content=f"[请点击绑定 GitHub 账号]({oauth_url})",
+        title="🔐 绑定 GitHub 账号",
+    )
     return bot.send(open_id, message, receive_id_type="open_id").json()
 
 

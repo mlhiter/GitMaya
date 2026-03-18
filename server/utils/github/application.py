@@ -2,7 +2,6 @@ import hashlib
 import hmac
 import os
 from functools import wraps
-from urllib.parse import parse_qs
 
 import httpx
 from app import app
@@ -30,13 +29,14 @@ def oauth_by_code(code: str) -> dict | None:
                 "client_secret": os.environ.get("GITHUB_CLIENT_SECRET"),
                 "code": code,
             },
+            headers={"Accept": "application/json"},
         )
         if response.status_code != 200:
             app.logger.debug(f"Failed to get access token. {response.text}")
             return None
 
         try:
-            oauth_info = parse_qs(response.text)
+            oauth_info = response.json()
         except Exception as e:
             app.logger.debug(e)
             return None

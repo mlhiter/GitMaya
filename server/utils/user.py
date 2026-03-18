@@ -1,5 +1,4 @@
 from app import app, db
-from flask import abort
 from model.schema import BindUser, ObjID, User
 from model.team import add_team_member
 from utils.github.account import get_email, get_user_info
@@ -20,13 +19,23 @@ def register(code: str) -> str | None:
 
     oauth_info = oauth_by_code(code)  # 获取 access token
     if oauth_info is None:
-        abort(500)
+        app.logger.warning("GitHub oauth_by_code failed")
+        return None
 
-    access_token = oauth_info.get("access_token", None)[0]  # 这里要考虑取哪个，为什么会有多个？
+    # 兼容历史 parse_qs(list) 与现在 json(str) 两种结构
+    access_token = oauth_info.get("access_token")
+    if isinstance(access_token, list):
+        access_token = access_token[0] if access_token else None
+    if not access_token:
+        app.logger.warning("GitHub OAuth response has no access_token: %r", oauth_info)
+        return None
     # TODO: 预备好对 user_access_token 的刷新处理
 
     # 使用 oauth_info 中的 access_token 获取用户信息
     user_info = get_user_info(access_token)
+    if not user_info or not user_info.get("id"):
+        app.logger.warning("Failed to get GitHub user info by token")
+        return None
 
     # 查询 github_id 是否已经存在，若存在，则刷新 access_token，返回 user_id
     github_id = str(user_info.get("id", None))
