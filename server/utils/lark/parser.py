@@ -17,6 +17,7 @@ class GitMayaLarkParser(object):
         self.command_list = [
             "/help",
             "/man",
+            "/bind",
             "/match",
             "/issue",
             "/new",
@@ -63,6 +64,8 @@ class GitMayaLarkParser(object):
         parser_help.set_defaults(func=self.on_help)
         parser_man = self.subparsers.add_parser("/man")
         parser_man.set_defaults(func=self.on_help)
+        parser_bind = self.subparsers.add_parser("/bind")
+        parser_bind.set_defaults(func=self.on_bind)
 
         parser_match = self.subparsers.add_parser("/match", exit_on_error=False)
         parser_match.add_argument("repo_url", nargs="?")
@@ -202,6 +205,11 @@ class GitMayaLarkParser(object):
             else:
                 tasks.send_chat_manual.delay(*args, **kwargs)
         return "help", param, unkown
+
+    def on_bind(self, param, unkown, *args, **kwargs):
+        logging.info("on_bind %r %r", vars(param), unkown)
+        tasks.send_github_bind_message.delay(*args, **kwargs)
+        return "bind", param, unkown
 
     def on_match(self, param, unkown, *args, **kwargs):
         logging.info("on_match %r %r", vars(param), unkown)
@@ -592,6 +600,7 @@ if __name__ == "__main__":
     commands = [
         "/help",
         "/man",
+        "/bind",
         "/match",
         "/match repo_url",
         "/match repo_url chat_name",

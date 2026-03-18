@@ -368,6 +368,36 @@ def send_manage_success_message(
 
 
 @celery.task()
+def send_github_bind_message(app_id, message_id, data, raw_message, *args, **kwargs):
+    """Send GitHub OAuth bind link to sender privately."""
+    bot, _ = get_bot_by_application_id(app_id)
+    if not bot:
+        return False
+
+    open_id = (
+        raw_message.get("event", {}).get("sender", {}).get("sender_id", {}).get("open_id")
+        if isinstance(raw_message, dict)
+        else None
+    )
+    if not open_id:
+        return send_manage_fail_message(
+            "无法识别当前用户，请稍后重试。",
+            app_id,
+            message_id,
+            data,
+            raw_message,
+            *args,
+            bot=bot,
+            **kwargs,
+        )
+
+    host = os.environ.get("DOMAIN")
+    oauth_url = build_github_oauth_url(host, app_id, open_id)
+    message = ManageFaild(content=f"[请点击绑定 GitHub 账号]({oauth_url})")
+    return bot.send(open_id, message, receive_id_type="open_id").json()
+
+
+@celery.task()
 def create_chat_group_for_repo(
     repo_url, chat_name, app_id, message_id, *args, **kwargs
 ):

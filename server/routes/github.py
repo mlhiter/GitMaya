@@ -3,9 +3,10 @@ import os
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from urllib.parse import urlencode
 
-from app import app
+from app import app, db
 from flask import Blueprint, jsonify, make_response, redirect, request, session
 from model.team import create_code_application, create_team
+from model.schema import BindUser, IMApplication, ObjID, TeamMember
 from tasks.github import pull_github_repo
 from tasks.github.issue import on_issue, on_issue_comment
 from tasks.github.organization import on_organization
@@ -32,7 +33,9 @@ def _decode_oauth_state(state: str) -> dict:
     return payload if isinstance(payload, dict) else {}
 
 
-def _send_lark_oauth_success(app_id: str, open_id: str) -> None:
+def _send_lark_oauth_success(
+    app_id: str, open_id: str, content: str = "GitHub 账号绑定成功，请回到飞书继续操作。"
+) -> None:
     from tasks.lark.base import get_bot_by_application_id
     from utils.lark.manage_success import ManageSuccess
 
@@ -43,8 +46,130 @@ def _send_lark_oauth_success(app_id: str, open_id: str) -> None:
         )
         return
 
-    message = ManageSuccess(content="GitHub 账号绑定成功，请回到飞书继续操作。")
+    message = ManageSuccess(content=content)
     bot.send(open_id, message, receive_id_type="open_id").json()
+
+
+def _bind_lark_user_to_team_member(app_id: str, open_id: str, user_id: str) -> bool:
+    """Bind lark open_id to current github user inside team_member.
+
+    This makes assignee mapping available for issue/pr cards and action callbacks.
+    """
+    if not app_id or not open_id or not user_id:
+        return False
+
+    application = (
+        db.session.query(IMApplication)
+        .filter(
+            IMApplication.app_id == app_id,
+            IMApplication.status.in_([0, 1]),
+        )
+        .first()
+    )
+    if not application:
+        app.logger.warning(
+            "Skip team_member auto-bind, IMApplication not found: app_id=%s", app_id
+        )
+        return False
+
+    github_bind_user = (
+        db.session.query(BindUser)
+        .filter(
+            BindUser.user_id == user_id,
+            BindUser.platform == "github",
+            BindUser.status == 0,
+        )
+        .first()
+    )
+    if not github_bind_user:
+        app.logger.warning(
+            "Skip team_member auto-bind, github bind user not found: user_id=%s", user_id
+        )
+        return False
+
+    im_bind_user = (
+        db.session.query(BindUser)
+        .filter(
+            BindUser.openid == open_id,
+            BindUser.platform == "lark",
+            BindUser.status == 0,
+        )
+        .first()
+    )
+
+    # Ensure an IM bind user exists even when contact sync was not executed yet.
+    if not im_bind_user:
+        im_bind_user = BindUser(
+            id=ObjID.new_id(),
+            user_id=user_id,
+            platform="lark",
+            application_id=application.id,
+            openid=open_id,
+            name=open_id,
+            extra={"source": "oauth_auto_bind"},
+        )
+        db.session.add(im_bind_user)
+        db.session.flush()
+    elif not im_bind_user.application_id:
+        im_bind_user.application_id = application.id
+
+    try:
+        team_member = (
+            db.session.query(TeamMember)
+            .filter(
+                TeamMember.team_id == application.team_id,
+                TeamMember.code_user_id == github_bind_user.id,
+                TeamMember.status == 0,
+            )
+            .first()
+        )
+
+        duplicate_im_binding = (
+            db.session.query(TeamMember.id)
+            .filter(
+                TeamMember.team_id == application.team_id,
+                TeamMember.im_user_id == im_bind_user.id,
+                TeamMember.status == 0,
+            )
+            .limit(1)
+            .scalar()
+        )
+
+        if team_member:
+            if duplicate_im_binding and duplicate_im_binding != team_member.id:
+                app.logger.warning(
+                    "Skip team_member auto-bind, im_user already bound to another member: team_id=%s open_id=%s",
+                    application.team_id,
+                    open_id,
+                )
+                db.session.rollback()
+                return False
+            if team_member.im_user_id != im_bind_user.id:
+                team_member.im_user_id = im_bind_user.id
+        else:
+            if duplicate_im_binding:
+                app.logger.warning(
+                    "Skip team_member auto-bind, im_user already bound: team_id=%s open_id=%s",
+                    application.team_id,
+                    open_id,
+                )
+                db.session.rollback()
+                return False
+            db.session.add(
+                TeamMember(
+                    id=ObjID.new_id(),
+                    team_id=application.team_id,
+                    code_user_id=github_bind_user.id,
+                    im_user_id=im_bind_user.id,
+                )
+            )
+
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+
+    return True
 
 
 @bp.route("/install", methods=["GET"])
@@ -168,7 +293,13 @@ def github_register():
                 app_id = payload.get("app_id")
                 open_id = payload.get("open_id")
                 if app_id and open_id:
-                    _send_lark_oauth_success(app_id, open_id)
+                    bind_ok = _bind_lark_user_to_team_member(app_id, open_id, user_id)
+                    success_text = (
+                        "GitHub 账号绑定成功，并已关联飞书成员。请回到群里继续操作。"
+                        if bind_ok
+                        else "GitHub 账号绑定成功，但团队成员映射未完成。请联系团队管理员在成员页绑定后重试。"
+                    )
+                    _send_lark_oauth_success(app_id, open_id, success_text)
             except Exception as e:
                 app.logger.warning(f"Failed to send lark oauth success message: {e}")
 
