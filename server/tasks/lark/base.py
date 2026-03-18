@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from functools import wraps
+from urllib.parse import urlencode
 
 from connectai.lark.sdk import Bot
 from model.schema import ChatGroup, IMApplication, Issue, ObjID, PullRequest, Repo, db
@@ -38,6 +39,13 @@ def get_repo_by_repo_id(repo_id):
         .first()
     )
     return repo
+
+
+def build_github_oauth_url(host, app_id=None, open_id=None):
+    base_url = f"{host}/api/github/oauth"
+    if app_id and open_id:
+        return f"{base_url}?{urlencode({'app_id': app_id, 'open_id': open_id})}"
+    return base_url
 
 
 def get_bot_by_application_id(app_id):
@@ -125,8 +133,15 @@ def with_authenticated_github():
 
                     app_id, message_id, content, raw_message = args[-4:]
                     host = os.environ.get("DOMAIN")
+                    open_id = (
+                        raw_message.get("event", {})
+                        .get("sender", {})
+                        .get("sender_id", {})
+                        .get("open_id")
+                    )
+                    oauth_url = build_github_oauth_url(host, app_id, open_id)
                     send_manage_fail_message(
-                        f"[请点击绑定 GitHub 账号后重试]({host}/api/github/oauth)",
+                        f"[请点击绑定 GitHub 账号后重试]({oauth_url})",
                         app_id,
                         message_id,
                         content,

@@ -27,7 +27,7 @@ from utils.lark.manage_success import ManageSuccess
 from utils.lark.repo_info import RepoInfo
 from utils.lark.repo_manual import RepoManual
 
-from .base import get_bot_by_application_id
+from .base import build_github_oauth_url, get_bot_by_application_id
 
 
 @celery.task()
@@ -63,8 +63,9 @@ def send_welcome_message(app_id, event_id, event, message, *args, **kwargs):
             )
             if not github_user or not github_user.access_token:
                 host = os.environ.get("DOMAIN")
+                oauth_url = build_github_oauth_url(host, app_id, open_id)
                 message = ManageFaild(
-                    content=f"[请点击绑定 GitHub 账号]({host}/api/github/oauth)",
+                    content=f"[请点击绑定 GitHub 账号]({oauth_url})",
                     title="🎉 欢迎使用 GitMaya！",
                 )
                 bot.send(open_id, message).json()

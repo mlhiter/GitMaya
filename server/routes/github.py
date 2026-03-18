@@ -1,5 +1,7 @@
 import json
 import os
+from base64 import urlsafe_b64decode, urlsafe_b64encode
+from urllib.parse import urlencode
 
 from app import app
 from flask import Blueprint, jsonify, make_response, redirect, request, session
@@ -16,6 +18,33 @@ from utils.github.bot import BaseGitHubApp
 from utils.user import register
 
 bp = Blueprint("github", __name__, url_prefix="/api/github")
+
+
+def _encode_oauth_state(payload: dict) -> str:
+    content = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    return urlsafe_b64encode(content).decode("utf-8").rstrip("=")
+
+
+def _decode_oauth_state(state: str) -> dict:
+    padding = "=" * ((4 - len(state) % 4) % 4)
+    content = urlsafe_b64decode((state + padding).encode("utf-8")).decode("utf-8")
+    payload = json.loads(content)
+    return payload if isinstance(payload, dict) else {}
+
+
+def _send_lark_oauth_success(app_id: str, open_id: str) -> None:
+    from tasks.lark.base import get_bot_by_application_id
+    from utils.lark.manage_success import ManageSuccess
+
+    bot, application = get_bot_by_application_id(app_id)
+    if not bot or not application:
+        app.logger.warning(
+            f"Skip lark oauth success notify, app_id not found: app_id={app_id}"
+        )
+        return
+
+    message = ManageSuccess(content="GitHub 账号绑定成功，请回到飞书继续操作。")
+    bot.send(open_id, message, receive_id_type="open_id").json()
 
 
 @bp.route("/install", methods=["GET"])
@@ -108,8 +137,18 @@ def github_register():
     code = request.args.get("code", None)
 
     if code is None:
+        params = {"client_id": os.environ.get("GITHUB_CLIENT_ID")}
+        app_id = request.args.get("app_id")
+        open_id = request.args.get("open_id")
+        if app_id and open_id:
+            params["state"] = _encode_oauth_state(
+                {
+                    "app_id": app_id,
+                    "open_id": open_id,
+                }
+            )
         return redirect(
-            f"https://github.com/login/oauth/authorize?client_id={os.environ.get('GITHUB_CLIENT_ID')}"
+            f"https://github.com/login/oauth/authorize?{urlencode(params)}"
         )
 
     # 通过 code 注册；如果 user 已经存在，则一样会返回 user_id
@@ -122,6 +161,16 @@ def github_register():
         session["user_id"] = user_id
         # 默认是会话级别的session，关闭浏览器直接就失效了
         session.permanent = True
+        state = request.args.get("state")
+        if state:
+            try:
+                payload = _decode_oauth_state(state)
+                app_id = payload.get("app_id")
+                open_id = payload.get("open_id")
+                if app_id and open_id:
+                    _send_lark_oauth_success(app_id, open_id)
+            except Exception as e:
+                app.logger.warning(f"Failed to send lark oauth success message: {e}")
 
     return make_response(
         """

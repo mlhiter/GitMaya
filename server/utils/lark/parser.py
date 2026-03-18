@@ -247,6 +247,12 @@ class GitMayaLarkParser(object):
                 title = " ".join(title)
                 users = [open_id for open_id in users if open_id]
                 tasks.create_issue.delay(title, users, labels, *args, **kwargs)
+            else:
+                tasks.send_manage_fail_message.delay(
+                    "请在项目群中使用 /issue。你可以先在私聊中执行 /match 绑定仓库。",
+                    *args,
+                    **kwargs,
+                )
         except Exception as e:
             logging.error(e)
         return "issue", param, unkown

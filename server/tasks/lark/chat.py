@@ -25,6 +25,7 @@ from utils.lark.issue_card import IssueCard
 from utils.lark.post_message import post_content_to_markdown
 
 from .base import (
+    build_github_oauth_url,
     get_bot_by_application_id,
     get_chat_group_by_chat_id,
     get_git_object_by_message_id,
@@ -296,9 +297,10 @@ def create_issue(
 
     if openid not in code_users:
         host = os.environ.get("DOMAIN")
+        oauth_url = build_github_oauth_url(host, app_id, openid)
 
         return tasks.send_manage_fail_message(
-            f"[请点击绑定 GitHub 账号后重试]({host}/api/github/oauth)",
+            f"[请点击绑定 GitHub 账号后重试]({oauth_url})",
             app_id,
             message_id,
             content,
@@ -459,9 +461,10 @@ def sync_issue(
 
     if openid not in code_users:
         host = os.environ.get("DOMAIN")
+        oauth_url = build_github_oauth_url(host, app_id, openid)
 
         return tasks.send_manage_fail_message(
-            f"[请点击绑定 GitHub 账号后重试]({host}/api/github/oauth)",
+            f"[请点击绑定 GitHub 账号后重试]({oauth_url})",
             app_id,
             message_id,
             content,
