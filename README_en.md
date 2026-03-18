@@ -387,13 +387,13 @@ $ docker run --name mysql -e MYSQL_ROOT_PASSWORD=gitmaya2023 -e MYSQL_DATABASE=g
 Create database and tables **(needed only once)**:
 
 ```fish
-$ flask --app server/server:app create
+$ pdm run flask --app server/server:app create
 ```
 
 Run the GitMaya server by using `gunicorn`:
 
 ```fish
-$ gunicorn --worker-class=gevent --workers 1 --bind 0.0.0.0:8888 -t 600 --keep-alive 60 --log-level=info server:app
+$ pdm run gunicorn --worker-class=gevent --workers 1 --bind 0.0.0.0:8888 -t 600 --keep-alive 60 --log-level=info server:app
 ```
 
 </details>

@@ -20,6 +20,8 @@ dependencies = [
     "celery>=5.3.6",
     "redis>=5.0.1",
     "pydantic>=2.5.3",
+    "gunicorn>=25.1.0",
+    "gevent>=25.9.1",
 ]
 requires-python = ">=3.10"
 readme = "README.md"

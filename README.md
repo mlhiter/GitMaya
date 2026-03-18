@@ -355,13 +355,13 @@ $ docker run --name mysql -e MYSQL_ROOT_PASSWORD=gitmaya2023 -e MYSQL_DATABASE=g
 创建数据库和表 （仅需要一次）：
 
 ```fish
-$ flask --app server/server:app create
+$ pdm run flask --app server/server:app create
 ```
 
 使用 `gunicorn` 运行 GitMaya 服务器：
 
 ```fish
-$ gunicorn --worker-class=gevent --workers 1 --bind 0.0.0.0:8888 -t 600 --keep-alive 60 --log-level=info server:app
+$ pdm run gunicorn --worker-class=gevent --workers 1 --bind 0.0.0.0:8888 -t 600 --keep-alive 60 --log-level=info server:app
 ```
 
 </details>
