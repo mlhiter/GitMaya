@@ -90,7 +90,7 @@ try {
   setTimeout(() => window.close(), 3000)
 } catch(e) {
   console.error(e)
-  location.replace('/')
+  location.replace('/api/account')
 }
 </script>
                                      """,
@@ -133,7 +133,7 @@ try {
   setTimeout(() => window.close(), 3000)
 } catch(e) {
   console.error(e)
-  location.replace('/')
+  location.replace('/api/account')
 }
 </script>
                                      """,

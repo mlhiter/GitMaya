@@ -1,7 +1,7 @@
 import logging
 import os
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, redirect
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 
@@ -13,6 +13,11 @@ db = SQLAlchemy(app, engine_options={"isolation_level": "AUTOCOMMIT"})
 CORS(
     app, allow_headers=["Authorization", "X-Requested-With"], supports_credentials=True
 )
+
+
+@app.route("/", methods=["GET"])
+def index():
+    return redirect("/api/account")
 
 
 @app.errorhandler(404)
