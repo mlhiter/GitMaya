@@ -123,21 +123,28 @@ export const Navbar = () => {
 
   return (
     <>
-      <NextUINavbar maxWidth="xl" position="sticky">
+      <NextUINavbar
+        maxWidth="xl"
+        position="sticky"
+        className="gm-nav"
+        classNames={{
+          wrapper: 'px-4 sm:px-6',
+        }}
+      >
         <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
           <NavbarBrand as="li" className="gap-3 max-w-fit">
             <Link className="flex justify-start items-center gap-1" href="/">
               <Logo />
-              <div className="text-xl font-black mx-4 text-gradient text-maya">GitMaya</div>
+              <div className="gm-brand text-lg sm:text-xl font-bold mx-4 text-[#f2e8cf]">GitMaya</div>
             </Link>
           </NavbarBrand>
-          <ul className="hidden lg:flex gap-4 justify-start ml-2">
+          <ul className="hidden lg:flex gap-2 justify-start ml-2">
             {appSiteConfig.navItems.map((item) => (
               <NavbarItem key={item.href}>
                 <Link
                   className={clsx(
                     linkStyles({ color: 'foreground' }),
-                    'data-[active=true]:text-primary data-[active=true]:font-medium',
+                    'rounded-full px-3 py-1.5 text-sm font-semibold text-[var(--gm-text-muted)] hover:text-[var(--gm-text-main)] data-[active=true]:bg-white/10 data-[active=true]:text-[var(--gm-text-main)]',
                   )}
                   color="foreground"
                   href={item.href}
@@ -161,6 +168,9 @@ export const Navbar = () => {
               label={t('Select a team')}
               className="max-w-xs min-w-48"
               size="sm"
+              classNames={{
+                trigger: 'bg-white/5 border border-white/15',
+              }}
               onChange={selectTeam}
               selectedKeys={[team_id]}
               items={teams}
@@ -175,7 +185,7 @@ export const Navbar = () => {
           </NavbarItem>
           <NavbarItem className="hidden sm:flex gap-2">
             <Link isExternal href={appSiteConfig.links.github} aria-label="Github">
-              <GithubIcon className="text-default-500" />
+              <GithubIcon className="text-[#d9d4c7] hover:text-[#f6d27c] transition-colors" />
             </Link>
             <Tooltip
               content={<Image src={LarkQR} width={300} />}
@@ -183,11 +193,11 @@ export const Navbar = () => {
               className="p-0 bg-transparent"
             >
               <span className="cursor-pointer">
-                <LarkWhiteIcon className="text-default-500" />
+                <LarkWhiteIcon className="text-[#d9d4c7] hover:text-[#f6d27c] transition-colors" />
               </span>
             </Tooltip>
             <Link isExternal href={appSiteConfig.links.invitation} target="_blank">
-              <BoxIcon className="text-default-500" />
+              <BoxIcon className="text-[#d9d4c7] hover:text-[#f6d27c] transition-colors" />
             </Link>
             {/* <ThemeSwitch /> */}
             <I18nSwitch />
@@ -201,11 +211,7 @@ export const Navbar = () => {
               />
             ) : (
               <RouterLink to={'/login'}>
-                <button className="text-white bg-maya p-[3px] rounded-lg w-full max-w-[300px] font-bold h-9 text-sm">
-                  <div className="bg-black hover:bg-[#1e293b] flex w-full h-full items-center justify-center  rounded-md px-4">
-                    {t('Sign in')}
-                  </div>
-                </button>
+                <button className="gm-primary-btn rounded-full px-5 h-10 text-sm">{t('Sign in')}</button>
               </RouterLink>
             )}
           </NavbarItem>

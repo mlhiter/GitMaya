@@ -4,10 +4,12 @@ import { useTranslation } from 'react-i18next';
 const Indicators = () => {
   const { t } = useTranslation();
   return (
-    <div className="bg-black-light-light flex-grow flex flex-col">
+    <div className="flex-grow flex flex-col">
       <Hero>
         <div className="flex-center">
-          <h1 className="text-3xl font-bold text-white mr-5">{t('Engineering indicators.')}</h1>
+          <h1 className="gm-brand text-3xl font-bold text-[#f2e8cf] mr-5">
+            {t('Engineering indicators.')}
+          </h1>
           <a
             href="https://gitmaya.com/"
             className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold leading-6 text-primary ring-1 ring-inset ring-primary/20"
@@ -31,7 +33,7 @@ const Indicators = () => {
           </a>
         </div>
       </Hero>
-      <main className="container -mt-40 max-w-7xl mx-auto px-4 sm:px-6 flex-grow bg-white">
+      <main className="gm-panel container -mt-24 max-w-7xl mx-auto px-4 sm:px-6 flex-grow rounded-3xl py-8">
         {t('Indicators')}
       </main>
     </div>

@@ -7,27 +7,25 @@ import {
   NavbarItem,
   NavbarMenuItem,
 } from '@nextui-org/navbar';
-import { Link } from '@nextui-org/link';
+import { Link as NextLink } from '@nextui-org/link';
 import { Tooltip, Image, Button } from '@nextui-org/react';
-
-import { link as linkStyles } from '@nextui-org/theme';
 
 import { siteConfig } from '@/config';
 import clsx from 'clsx';
 import { GithubIcon, Logo, LarkWhiteIcon, SolarIcon } from '@/components/icons';
-// import { ThemeSwitch } from '@/components/theme-switch';
 import { I18nSwitch } from '@/components/i18n-switch';
 
 import { useTranslation } from 'react-i18next';
 import { useAccountStore } from '@/stores';
 import { Avatar } from '@/components/avatar';
 import LarkQR from '@/assets/lark-group-QR.jpg';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 
 export const Navbar = () => {
   const account = useAccountStore.use.account();
   const getAccount = useAccountStore.use.updateAccount();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { t } = useTranslation();
 
@@ -37,36 +35,48 @@ export const Navbar = () => {
   };
 
   return (
-    <NextUINavbar maxWidth="xl" position="sticky">
+    <NextUINavbar
+      maxWidth="xl"
+      position="sticky"
+      className="gm-nav"
+      classNames={{
+        wrapper: 'px-4 sm:px-6',
+      }}
+    >
       <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
-        <NavbarBrand as="li" className="gap-3 max-w-fit">
-          <Link className="flex justify-start items-center gap-1" href="/">
+        <NavbarBrand as="li" className="max-w-fit">
+          <RouterLink className="flex items-center gap-3" to="/">
             <Logo />
-            <div className="text-xl font-black mx-4 text-gradient text-maya">GitMaya</div>
-          </Link>
+            <div className="gm-brand text-lg sm:text-xl font-bold text-[#f2e8cf]">GitMaya</div>
+          </RouterLink>
         </NavbarBrand>
-        <ul className="hidden lg:flex gap-4 justify-start ml-2">
-          {siteConfig.navItems.map((item) => (
-            <NavbarItem key={item.href}>
-              <Link
-                className={clsx(
-                  linkStyles({ color: 'foreground' }),
-                  'data-[active=true]:text-primary data-[active=true]:font-medium',
-                )}
-                color="foreground"
-                href={item.href}
-              >
-                {t(item.label)}
-              </Link>
-            </NavbarItem>
-          ))}
+        <ul className="hidden lg:flex gap-2 justify-start ml-3">
+          {siteConfig.navItems.map((item) => {
+            const active = location.pathname === item.href;
+            return (
+              <NavbarItem key={item.href}>
+                <RouterLink
+                  className={clsx(
+                    'rounded-full px-3 py-1.5 text-sm font-semibold transition-colors',
+                    active
+                      ? 'gm-chip'
+                      : 'text-[var(--gm-text-muted)] hover:text-[var(--gm-text-main)]',
+                  )}
+                  to={item.href}
+                >
+                  {t(item.label)}
+                </RouterLink>
+              </NavbarItem>
+            );
+          })}
         </ul>
       </NavbarContent>
+
       <NavbarContent className="hidden sm:flex basis-1/5 sm:basis-full" justify="end">
-        <NavbarItem className="hidden sm:flex gap-2">
-          <Link isExternal href={siteConfig.links.github} aria-label="Github">
-            <GithubIcon className="text-default-500" />
-          </Link>
+        <NavbarItem className="hidden sm:flex gap-3">
+          <NextLink isExternal href={siteConfig.links.github} aria-label="Github">
+            <GithubIcon className="text-[#d9d4c7] hover:text-[#f6d27c] transition-colors" />
+          </NextLink>
           <Tooltip
             delay={300}
             content={<Image src={LarkQR} width={300} />}
@@ -74,13 +84,12 @@ export const Navbar = () => {
             className="p-0 bg-transparent"
           >
             <span className="cursor-pointer">
-              <LarkWhiteIcon className="text-default-500" />
+              <LarkWhiteIcon className="text-[#d9d4c7] hover:text-[#f6d27c] transition-colors" />
             </span>
           </Tooltip>
-          <Link isExternal href={siteConfig.links.document} target="_blank">
-            <SolarIcon className="text-default-500" />
-          </Link>
-          {/* <ThemeSwitch /> */}
+          <NextLink isExternal href={siteConfig.links.document} target="_blank">
+            <SolarIcon className="text-[#d9d4c7] hover:text-[#f6d27c] transition-colors" />
+          </NextLink>
           <I18nSwitch />
         </NavbarItem>
         <NavbarItem className="hidden sm:flex">
@@ -93,39 +102,36 @@ export const Navbar = () => {
           ) : (
             <Button
               onPress={login}
-              className="text-white bg-maya p-[3px] rounded-lg w-full max-w-[300px] font-bold h-9 text-sm"
+              className="gm-primary-btn rounded-full px-5 h-10 min-w-28 text-sm"
             >
-              <div className="bg-black hover:bg-[#1e293b] flex w-full h-full items-center justify-center rounded-md px-4">
-                {t('Sign in')}
-              </div>
+              {t('Sign in')}
             </Button>
           )}
         </NavbarItem>
       </NavbarContent>
+
       <NavbarContent className="sm:hidden basis-1 pl-4" justify="end">
-        <Link isExternal href={siteConfig.links.github} aria-label="Github">
-          <GithubIcon className="text-default-500" />
-        </Link>
-        {/* <ThemeSwitch /> */}
+        <NextLink isExternal href={siteConfig.links.github} aria-label="Github">
+          <GithubIcon className="text-[#d9d4c7]" />
+        </NextLink>
         <NavbarMenuToggle />
       </NavbarContent>
-      <NavbarMenu>
-        <div className="mx-4 mt-2 flex flex-col gap-2">
-          {siteConfig.navMenuItems.map((item, index) => (
-            <NavbarMenuItem key={`${item}-${index}`}>
-              <Link
-                color={
-                  index === 2
-                    ? 'primary'
-                    : index === siteConfig.navMenuItems.length - 1
-                      ? 'danger'
-                      : 'foreground'
-                }
-                href="#"
-                size="lg"
+
+      <NavbarMenu className="pt-5">
+        <div className="mx-2 flex flex-col gap-2">
+          {siteConfig.navMenuItems.map((item) => (
+            <NavbarMenuItem key={item.href}>
+              <RouterLink
+                className={clsx(
+                  'block rounded-xl px-3 py-2 text-base font-semibold',
+                  location.pathname === item.href
+                    ? 'gm-chip'
+                    : 'text-[var(--gm-text-main)]/85 hover:bg-white/5',
+                )}
+                to={item.href}
               >
-                {item.label}
-              </Link>
+                {t(item.label)}
+              </RouterLink>
             </NavbarMenuItem>
           ))}
         </div>

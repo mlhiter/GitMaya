@@ -174,13 +174,13 @@ const People = () => {
 
   return (
     <div className="flex-grow flex flex-col">
-      <div className="bg-black-light-light flex-grow flex flex-col">
+      <div className="flex-grow flex flex-col">
         <Hero>
           <div className="flex justify-between items-center mb-5">
-            <h1 className="text-3xl font-bold text-white mr-5">{t('My organization')}</h1>
+            <h1 className="gm-brand text-3xl font-bold text-[#f2e8cf] mr-5">{t('My organization')}</h1>
           </div>
           <div
-            className="flex items-center p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-gray-800 dark:text-yellow-300"
+            className="gm-panel flex items-center p-4 mb-4 text-sm text-[var(--gm-text-muted)] rounded-2xl"
             role="alert"
           >
             <svg
@@ -201,7 +201,7 @@ const People = () => {
             </div>
           </div>
         </Hero>
-        <main className="bg-light container -mt-32 max-w-7xl mx-auto flex-grow relative">
+        <main className="gm-panel container -mt-24 max-w-7xl mx-auto flex-grow relative rounded-3xl p-2 sm:p-4">
           {isLoading ? (
             <Spinner label="Loading..." color="warning" className="absolute inset-0" />
           ) : (

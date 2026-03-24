@@ -9,7 +9,7 @@ const AppLayout = () => {
     getAccount();
   }, [getAccount]);
   return (
-    <div className="relative flex flex-col h-screen ">
+    <div className="gm-shell relative flex min-h-screen flex-col">
       <Navbar />
       <Outlet />
     </div>
@@ -23,9 +23,9 @@ export const HeaderContent = ({
   title: string;
   children: React.ReactNode;
 }) => (
-  <header className="pt-10 pb-10">
+  <header className="pt-9 pb-8">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-bold text-white">{title}</h1>
+      <h1 className="gm-brand text-3xl font-bold text-[#f2e8cf]">{title}</h1>
     </div>
     <div>{children}</div>
   </header>
@@ -33,9 +33,9 @@ export const HeaderContent = ({
 
 export const Hero = ({ children }: { children?: React.ReactNode }) => {
   return (
-    <div className="bg-black pb-32">
-      <header className="pt-10">
-        <div className="max-w-7xl mx-auto">{children}</div>
+    <div className="pb-28">
+      <header className="pt-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">{children}</div>
       </header>
     </div>
   );

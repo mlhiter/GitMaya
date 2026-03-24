@@ -4,12 +4,12 @@ import { Navbar } from '@/layout/narbar';
 
 const Layout = () => {
   return (
-    <div className="relative flex flex-col h-screen">
+    <div className="gm-shell relative flex min-h-screen flex-col">
       <Navbar />
-      <main className="pt-24 flex-grow w-full">
+      <main className="flex-grow w-full">
         <Outlet />
       </main>
-      <Footer className="bg-dark" />
+      <Footer className="bg-transparent" />
     </div>
   );
 };

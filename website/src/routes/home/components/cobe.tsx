@@ -81,7 +81,7 @@ export const Cobe = () => {
     <a
       style={{
         width: '100%',
-        maxWidth: 700,
+        maxWidth: 820,
         aspectRatio: 1,
         margin: 'auto',
         position: 'relative',
@@ -89,46 +89,31 @@ export const Cobe = () => {
       }}
       href={siteConfig.links.bilibili}
       target="_blank"
+      rel="noreferrer"
+      className="group"
     >
-      <div
-        className={'group  cursor-pointer'}
-        style={{
-          width: '100%',
-          fontWeight: 700,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          zIndex: 1,
-          textAlign: 'center',
-          color: '#fff',
-          userSelect: 'none',
-          position: 'absolute',
-          mixBlendMode: 'difference',
-        }}
-      >
+      <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-4 text-center">
+        <div className="mb-3 rounded-full gm-chip px-3 py-1 text-[10px] font-semibold tracking-[0.14em] uppercase sm:text-xs">
+          AI Native GitOps
+        </div>
         <TextLogo
-          className={'w-40 group-hover:opacity-85 md:w-[400px]'}
+          className="w-44 text-[#f2e8cf] transition-opacity duration-300 group-hover:opacity-90 sm:w-[420px]"
           style={{
             margin: 'auto',
             display: 'block',
-            marginBottom: 2,
+            marginBottom: 6,
           }}
         />
-        <div className={'flex items-center justify-center'}>
-          <div className={'flex  items-center justify-center px-12'}>
-            <YoutubeIcon className={'size-6 pt-0.5 group-hover:text-maya md:size-10'} />
-            <span
-              className={'text-xl group-hover:opacity-85 md:text-4xl '}
-              style={{ paddingLeft: '10px' }}
-            >
-              {t('Make Git Flow In Chat')}
-            </span>
-          </div>
+        <div className="flex items-center justify-center px-5 sm:px-12">
+          <YoutubeIcon className="size-5 text-[#f6d27c] sm:size-8" />
+          <span
+            className="gm-brand pl-2 text-lg font-semibold text-[#f2e8cf] sm:pl-3 sm:text-3xl"
+            style={{ textShadow: '0 8px 22px rgba(0,0,0,0.35)' }}
+          >
+            {t('Make Git Flow In Chat')}
+          </span>
         </div>
-        <div
-          className={
-            'mt-4 flex items-center justify-center gap-5 text-2xl group-hover:opacity-85 md:mt-6 md:text-4xl'
-          }
-        >
+        <div className="mt-4 flex items-center justify-center gap-4 text-[26px] text-[var(--gm-text-muted)] sm:gap-5 sm:text-[34px]">
           <LarkWhiteIcon />
           <DiscordIcon />
           <SlackWhiteIcon />
@@ -146,6 +131,7 @@ export const Cobe = () => {
           opacity: 0,
           transition: 'opacity 1s ease',
           borderRadius: '50%',
+          boxShadow: '0 24px 60px -38px rgba(245, 187, 74, 0.5)',
         }}
         onMouseMove={(e) => {
           if (pointerInteracting.current !== null) {
