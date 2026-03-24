@@ -11,24 +11,27 @@ export const I18nSwitch = () => {
       <Tooltip
         delay={100}
         content={
-          <div className="bg-default-300 flex flex-col rounded-xl">
+          <div className="gm-overlay-surface flex min-w-32 flex-col rounded-xl p-1">
             <Button
               color="default"
-              className="hover:bg-default-400"
+              variant="light"
+              className="justify-start text-[var(--gm-text-main)] hover:bg-[var(--gm-overlay-hover)]"
               onClick={() => onAction('en-US')}
             >
               English
             </Button>
             <Button
               color="default"
-              className="hover:bg-default-400"
+              variant="light"
+              className="justify-start text-[var(--gm-text-main)] hover:bg-[var(--gm-overlay-hover)]"
               onClick={() => onAction('zh-CN')}
             >
               简体中文
             </Button>
             <Button
               color="default"
-              className="hover:bg-default-400"
+              variant="light"
+              className="justify-start text-[var(--gm-text-main)] hover:bg-[var(--gm-overlay-hover)]"
               onClick={() => onAction('vi-VN')}
             >
               Tiếng
@@ -37,6 +40,9 @@ export const I18nSwitch = () => {
         }
         placement="bottom"
         className="p-0 bg-transparent"
+        classNames={{
+          content: 'bg-transparent p-0 shadow-none',
+        }}
       >
         <span className="cursor-pointer">
           <I18nIcon className="text-default-500" />

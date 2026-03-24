@@ -23,7 +23,12 @@ export const Avatar = ({ email, name, avatarUrl }: AvatarProps) => {
     await logout();
   };
   return (
-    <Dropdown placement="bottom-end">
+    <Dropdown
+      placement="bottom-end"
+      classNames={{
+        content: 'gm-overlay-surface',
+      }}
+    >
       <DropdownTrigger>
         <NextAvatar
           isBordered
@@ -35,7 +40,17 @@ export const Avatar = ({ email, name, avatarUrl }: AvatarProps) => {
           src={avatarUrl}
         />
       </DropdownTrigger>
-      <DropdownMenu aria-label="Profile Actions" variant="flat">
+      <DropdownMenu
+        aria-label="Profile Actions"
+        variant="flat"
+        classNames={{
+          base: 'gm-overlay-list',
+          list: 'p-1',
+        }}
+        itemClasses={{
+          base: 'gm-overlay-item',
+        }}
+      >
         <DropdownItem key="profile" className="h-14 gap-2">
           <p className="font-semibold">{name}</p>
           <p className="font-semibold">{email}</p>

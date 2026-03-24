@@ -108,12 +108,15 @@ const Repo = () => {
                     ?.slice(count)
                     ?.map((user) => user.name)
                     .join(', ')}
+                  classNames={{
+                    content: 'gm-tooltip-surface',
+                  }}
                 >
                   <Avatar
                     icon={<AvatarIcon />}
                     name={`+${count?.toString()}`}
                     classNames={{
-                      icon: 'text-black/80',
+                      icon: 'text-[var(--gm-text-main)]/80',
                     }}
                   />
                 </Tooltip>
@@ -121,7 +124,13 @@ const Repo = () => {
             )}
           >
             {repo.users?.map((user) => (
-              <Tooltip content={user.name} key={user.id}>
+              <Tooltip
+                content={user.name}
+                key={user.id}
+                classNames={{
+                  content: 'gm-tooltip-surface',
+                }}
+              >
                 <Avatar src={user.avatar} name={user.name} />
               </Tooltip>
             ))}
@@ -131,13 +140,27 @@ const Repo = () => {
         return <div>{repo?.chat?.name}</div>;
       case 'actions':
         return (
-          <Dropdown>
+          <Dropdown
+            classNames={{
+              content: 'gm-overlay-surface',
+            }}
+          >
             <DropdownTrigger>
               <Button className="bg-maya text-white" variant="bordered">
                 {t('Actions')}
               </Button>
             </DropdownTrigger>
-            <DropdownMenu aria-label="Example with disabled actions" disabledKeys={['frozen']}>
+            <DropdownMenu
+              aria-label="Example with disabled actions"
+              disabledKeys={['frozen']}
+              classNames={{
+                base: 'gm-overlay-list',
+                list: 'p-1',
+              }}
+              itemClasses={{
+                base: 'gm-overlay-item',
+              }}
+            >
               {repo.chat ? (
                 <DropdownItem key="create" onPress={() => viewChat(repo.chat?.chat_id)}>
                   View chat

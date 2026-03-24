@@ -129,11 +129,19 @@ const People = () => {
               className="max-w-xs"
               size="sm"
               defaultItems={larkUsers}
+              classNames={{
+                base: 'text-[var(--gm-text-main)]',
+                selectorButton: 'text-[var(--gm-text-muted)]',
+                clearButton: 'text-[var(--gm-text-muted)]',
+                listboxWrapper: 'gm-overlay-list',
+                listbox: 'gm-overlay-list',
+                popoverContent: 'gm-overlay-surface p-1',
+              }}
               onSelectionChange={(value) => bindMember(value as string, user)}
               defaultSelectedKey={user.im_user?.id}
             >
               {(user) => (
-                <AutocompleteItem key={user.value} value={user.value}>
+                <AutocompleteItem key={user.value} value={user.value} className="gm-overlay-item">
                   {user.label}
                 </AutocompleteItem>
               )}

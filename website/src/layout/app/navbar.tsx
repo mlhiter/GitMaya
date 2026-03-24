@@ -169,7 +169,13 @@ export const Navbar = () => {
               className="max-w-xs min-w-48"
               size="sm"
               classNames={{
-                trigger: 'bg-white/5 border border-white/15',
+                trigger: 'gm-overlay-trigger',
+                label: 'gm-overlay-label',
+                value: 'gm-overlay-value',
+                selectorIcon: 'text-[var(--gm-text-muted)]',
+                popoverContent: 'gm-overlay-surface p-1',
+                listboxWrapper: 'gm-overlay-list',
+                listbox: 'gm-overlay-list',
               }}
               onChange={selectTeam}
               selectedKeys={[team_id]}
@@ -177,7 +183,7 @@ export const Navbar = () => {
               disallowEmptySelection
             >
               {(team) => (
-                <SelectItem key={team.value} value={team.value}>
+                <SelectItem key={team.value} value={team.value} className="gm-overlay-item">
                   {team.label}
                 </SelectItem>
               )}
@@ -250,7 +256,11 @@ export const Navbar = () => {
         isOpen={isOpen}
         onOpenChange={onOpenChange}
         classNames={{
-          backdrop: 'bg-gradient-to-t from-zinc-900 to-zinc-900/10 backdrop-opacity-20',
+          backdrop: 'gm-overlay-backdrop',
+          base: 'gm-overlay-surface',
+          header: 'text-[var(--gm-text-main)]',
+          body: 'text-[var(--gm-text-main)]',
+          closeButton: 'text-[var(--gm-text-muted)] hover:bg-white/10',
         }}
       >
         <ModalContent>
@@ -262,21 +272,21 @@ export const Navbar = () => {
               <ModalBody>
                 <div className="mx-auto w-full flex items-center justify-center rounded-full">
                   <GithubIcon size={50} />
-                  <div className="h-1 w-1 rounded-full bg-black animate-pulse mx-3 ml-5"></div>
-                  <div className="h-1 w-1 rounded-full bg-black animate-pulse mx-3 mr-5"></div>
+                  <div className="h-1 w-1 rounded-full bg-[var(--gm-accent)] animate-pulse mx-3 ml-5"></div>
+                  <div className="h-1 w-1 rounded-full bg-[var(--gm-accent)] animate-pulse mx-3 mr-5"></div>
                   <Logo size={60} />
-                  <div className="h-1 w-1 rounded-full bg-black animate-pulse mx-3 ml-5"></div>
-                  <div className="h-1 w-1 rounded-full bg-black animate-pulse mx-3 mr-5"></div>
+                  <div className="h-1 w-1 rounded-full bg-[var(--gm-accent)] animate-pulse mx-3 ml-5"></div>
+                  <div className="h-1 w-1 rounded-full bg-[var(--gm-accent)] animate-pulse mx-3 mr-5"></div>
                   <LarkWhiteIcon size={50} />
                 </div>
                 {!account?.current_team ? (
-                  <p className="text-sm text-gray-500 text-center">
+                  <p className="text-sm text-[var(--gm-text-muted)] text-center">
                     {t(
                       'In order for Gitmaya to work properly,we need to add it to your code repository.Learn about our data privacy policy, permissions and security measures here.',
                     )}
                   </p>
                 ) : (
-                  <p className="text-sm text-gray-500 text-center">
+                  <p className="text-sm text-[var(--gm-text-muted)] text-center">
                     {t('In order for Gitmaya to work properly, we need to add')}
                     <span className="text-maya"> Lark </span>{' '}
                     {t(

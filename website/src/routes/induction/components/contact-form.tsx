@@ -43,6 +43,12 @@ export const ContactForm = ({
     setStep((step) => step + 1);
   };
 
+  const inputClassNames = {
+    inputWrapper: 'gm-overlay-trigger',
+    input: 'gm-overlay-value',
+    label: 'gm-overlay-label',
+  } as const;
+
   return (
     <div>
       <form className="flex flex-col gap-4">
@@ -56,6 +62,7 @@ export const ContactForm = ({
                 isRequired
                 label={t('First name')}
                 placeholder={t('Enter your first name')}
+                classNames={inputClassNames}
                 {...field}
               />
             )}
@@ -64,7 +71,12 @@ export const ContactForm = ({
             name="last_name"
             control={control}
             render={({ field }) => (
-              <Input label={t('Last name')} placeholder={t('Enter your last name')} {...field} />
+              <Input
+                label={t('Last name')}
+                placeholder={t('Enter your last name')}
+                classNames={inputClassNames}
+                {...field}
+              />
             )}
           />
         </div>
@@ -79,6 +91,7 @@ export const ContactForm = ({
                 label={t('Email address')}
                 placeholder={t('Enter your email')}
                 type="email"
+                classNames={inputClassNames}
                 {...field}
               />
             )}
@@ -97,9 +110,18 @@ export const ContactForm = ({
                 label={t('Role')}
                 placeholder={t('Select a role')}
                 selectedKeys={[field.value]}
+                classNames={{
+                  trigger: 'gm-overlay-trigger',
+                  label: 'gm-overlay-label',
+                  value: 'gm-overlay-value',
+                  selectorIcon: 'text-[var(--gm-text-muted)]',
+                  popoverContent: 'gm-overlay-surface p-1',
+                  listboxWrapper: 'gm-overlay-list',
+                  listbox: 'gm-overlay-list',
+                }}
               >
                 {Roles.map((role) => (
-                  <SelectItem key={role.value} value={role.value}>
+                  <SelectItem key={role.value} value={role.value} className="gm-overlay-item">
                     {t(role.label)}
                   </SelectItem>
                 ))}
@@ -118,10 +140,10 @@ export const ContactForm = ({
                 isSelected={value}
                 color="default"
               >
-                <span className="text-black">
+                <span className="text-[var(--gm-text-main)]">
                   {t("I'd like to subscribe to the monthly newsletter")}
                 </span>
-                <p className="text-gray-500">
+                <p className="text-[var(--gm-text-muted)]">
                   {t(
                     'Subscribe to our monthly newsletter to be the first one to hear about product updates. No spam, we promise.',
                   )}

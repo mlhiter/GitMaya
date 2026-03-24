@@ -85,6 +85,12 @@ export const LarkInstallation = forwardRef<LarkInstallationRef>((_props, ref) =>
     },
   ];
 
+  const inputClassNames = {
+    inputWrapper: 'gm-overlay-trigger',
+    input: 'gm-overlay-value',
+    label: 'gm-overlay-label',
+  } as const;
+
   const StepOne = () => {
     return (
       <div>
@@ -127,6 +133,7 @@ export const LarkInstallation = forwardRef<LarkInstallationRef>((_props, ref) =>
                 isRequired
                 label={t('NAME')}
                 placeholder={t('Enter your robot name')}
+                classNames={inputClassNames}
                 {...field}
               />
             )}
@@ -140,6 +147,7 @@ export const LarkInstallation = forwardRef<LarkInstallationRef>((_props, ref) =>
                 isRequired
                 label={t('APP_ID')}
                 placeholder={t('Enter your app id')}
+                classNames={inputClassNames}
                 {...field}
               />
             )}
@@ -155,6 +163,7 @@ export const LarkInstallation = forwardRef<LarkInstallationRef>((_props, ref) =>
                 isRequired
                 label={t('APP_SECRET')}
                 placeholder={t('Enter your app secret')}
+                classNames={inputClassNames}
                 {...field}
               />
             )}
@@ -168,6 +177,7 @@ export const LarkInstallation = forwardRef<LarkInstallationRef>((_props, ref) =>
                 isRequired
                 label={t('ENCRYPT_KEY')}
                 placeholder={t('Enter your encrypt key')}
+                classNames={inputClassNames}
                 {...field}
               />
             )}
@@ -183,6 +193,7 @@ export const LarkInstallation = forwardRef<LarkInstallationRef>((_props, ref) =>
                 isRequired
                 label={t('VERIFICATION_TOKEN')}
                 placeholder={t('Enter your verification token')}
+                classNames={inputClassNames}
                 {...field}
               />
             )}
@@ -208,6 +219,7 @@ export const LarkInstallation = forwardRef<LarkInstallationRef>((_props, ref) =>
           label="CALLBACK_URL"
           disabled
           value={callbackUrl}
+          classNames={inputClassNames}
           endContent={<CopyIcon className="cursor-pointer" onClick={copyCallbackUrl} />}
         />
       </div>
@@ -256,7 +268,20 @@ export const LarkInstallation = forwardRef<LarkInstallationRef>((_props, ref) =>
   };
 
   return (
-    <Modal size="5xl" className="max-w-[1200px]" isOpen={isOpen} onClose={onClose}>
+    <Modal
+      size="5xl"
+      className="max-w-[1200px]"
+      isOpen={isOpen}
+      onClose={onClose}
+      classNames={{
+        backdrop: 'gm-overlay-backdrop',
+        base: 'gm-overlay-surface',
+        header: 'text-[var(--gm-text-main)]',
+        body: 'text-[var(--gm-text-main)]',
+        footer: 'text-[var(--gm-text-main)]',
+        closeButton: 'text-[var(--gm-text-muted)] hover:bg-white/10',
+      }}
+    >
       <ModalContent>
         {(onClose) => (
           <>
@@ -280,8 +305,8 @@ export const LarkInstallation = forwardRef<LarkInstallationRef>((_props, ref) =>
                                 'text-sm font-medium flex-grow mx-2 whitespace-nowrap',
                                 {
                                   'text-maya': index === step,
-                                  'text-gray-500': step <= index,
-                                  'text-black': step > index,
+                                  'text-[var(--gm-text-muted)]': step <= index,
+                                  'text-[var(--gm-text-main)]': step > index,
                                 },
                               )}
                             >
