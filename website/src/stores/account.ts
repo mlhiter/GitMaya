@@ -5,7 +5,7 @@ import { getAccount } from '@/api';
 
 interface AccountState {
   account: Github.Account | null;
-  setAccount: (account: Github.Account) => void;
+  setAccount: (account: Github.Account | null) => void;
   lang: string;
   setLang: (lang: string) => void;
   updateAccount: () => Promise<void>;

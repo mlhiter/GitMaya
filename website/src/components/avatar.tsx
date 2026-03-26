@@ -8,6 +8,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { logout } from '@/api';
 import { useAccountStore } from '@/stores';
+import { useNavigate } from 'react-router-dom';
 
 interface AvatarProps {
   name: string;
@@ -18,9 +19,14 @@ interface AvatarProps {
 export const Avatar = ({ email, name, avatarUrl }: AvatarProps) => {
   const { t } = useTranslation();
   const setAccount = useAccountStore.use.setAccount();
+  const navigate = useNavigate();
   const handleLogout = async () => {
-    setAccount({} as Github.Account);
-    await logout();
+    try {
+      await logout();
+    } finally {
+      setAccount(null);
+      navigate('/login', { replace: true });
+    }
   };
   return (
     <Dropdown
