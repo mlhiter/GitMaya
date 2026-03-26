@@ -1,7 +1,13 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { isEmpty } from 'lodash-es';
 
-const oauthHost = import.meta.env.VITE_OAUTH_HOST ?? window.location.origin;
+const resolveOauthUrl = (url: string) => {
+  try {
+    return new URL(url, window.location.origin).toString();
+  } catch {
+    return url;
+  }
+};
 
 export const useOauthDialog = ({
   url,
@@ -15,7 +21,7 @@ export const useOauthDialog = ({
   callback: (data: unknown) => void;
 }) => {
   const dialog = useRef<Window | null>();
-  const _url = oauthHost + url;
+  const _url = resolveOauthUrl(url);
 
   const eventListener = useCallback(
     (e: MessageEvent) => {
