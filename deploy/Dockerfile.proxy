@@ -17,3 +17,7 @@ ADD ./deploy/gitmaya.com.conf /etc/nginx/vhost.d/gitmaya.com.conf
 ADD ./deploy/proxy.conf /etc/nginx/proxy.conf
 
 COPY --from=build /app/dist /var/www/html
+
+# Normalize static file permissions so nginx worker can read locale assets.
+RUN find /var/www/html -type d -exec chmod 755 {} \; \
+  && find /var/www/html -type f -exec chmod 644 {} \;

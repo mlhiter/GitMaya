@@ -402,7 +402,7 @@ def send_github_bind_message(app_id, message_id, data, raw_message, *args, **kwa
 
 @celery.task()
 def create_chat_group_for_repo(
-    repo_url, chat_name, app_id, message_id, *args, **kwargs
+    repo_url, chat_name, app_id, message_id, *args, replace=False, **kwargs
 ):
     """
     user input:
@@ -432,7 +432,7 @@ def create_chat_group_for_repo(
         )
 
     # TODO
-    repo_name = repo_url.split("/").pop()
+    repo_name = (repo_url or "").rstrip("/").split("/").pop()
     repo = (
         db.session.query(Repo)
         .join(
@@ -502,10 +502,35 @@ def create_chat_group_for_repo(
             db.session.add(current_chat_group)
             db.session.flush()
 
+        replace_unbind_count = 0
+        if replace:
+            chat_group_ids = [
+                chat_group_id
+                for chat_group_id, in db.session.query(ChatGroup.id)
+                .filter(
+                    ChatGroup.chat_id == chat_id,
+                    ChatGroup.status == 0,
+                )
+                .all()
+            ]
+            if chat_group_ids:
+                replace_unbind_count = (
+                    db.session.query(Repo)
+                    .filter(
+                        Repo.chat_group_id.in_(chat_group_ids),
+                        Repo.status == 0,
+                        Repo.id != repo.id,
+                    )
+                    .update(dict(chat_group_id=None), synchronize_session=False)
+                )
+
+        should_commit = bool(replace and replace_unbind_count > 0)
         if repo.chat_group_id != current_chat_group.id:
             db.session.query(Repo).filter(Repo.id == repo.id).update(
                 dict(chat_group_id=current_chat_group.id)
             )
+            should_commit = True
+        if should_commit:
             db.session.commit()
 
         bind_result = send_repo_to_chat_group(repo.id, app_id, chat_id)
@@ -516,6 +541,8 @@ def create_chat_group_for_repo(
             f"已将当前群「{current_chat_group.name}」绑定到仓库 "
             f"https://github.com/{team.name}/{repo.name}"
         )
+        if replace:
+            content = f"{content}\n已移除当前群内其余 {replace_unbind_count} 个仓库绑定"
         return bind_result + [
             send_manage_success_message(
                 content,
@@ -702,6 +729,119 @@ def create_chat_group_for_repo(
         )
     ]
     return result
+
+
+@celery.task()
+def unmatch_chat_group_repo(app_id, message_id, data, raw_message, *args, **kwargs):
+    """Unbind all repos from current chat group."""
+    bot, application = get_bot_by_application_id(app_id)
+    if not application:
+        return send_manage_fail_message(
+            "找不到对应的应用",
+            app_id,
+            message_id,
+            data,
+            raw_message,
+            *args,
+            bot=bot,
+            **kwargs,
+        )
+
+    event = raw_message.get("event", {}) if isinstance(raw_message, dict) else {}
+    event_message = event.get("message", {}) if isinstance(event, dict) else {}
+    chat_type = event_message.get("chat_type")
+    chat_id = event_message.get("chat_id", "")
+    sender_open_id = event.get("sender", {}).get("sender_id", {}).get("open_id", "")
+
+    if chat_type != "group":
+        return send_manage_fail_message(
+            "请在群聊中使用 /unmatch",
+            app_id,
+            message_id,
+            data,
+            raw_message,
+            *args,
+            bot=bot,
+            **kwargs,
+        )
+
+    allow_unbind = _is_chat_owner_or_manager(bot, chat_id, sender_open_id)
+    if not allow_unbind:
+        return send_manage_fail_message(
+            "只有群管理员/群主可以在群里执行 /unmatch 解绑仓库",
+            app_id,
+            message_id,
+            data,
+            raw_message,
+            *args,
+            bot=bot,
+            **kwargs,
+        )
+
+    if not chat_id:
+        return send_manage_fail_message(
+            "无法识别当前群，请稍后重试",
+            app_id,
+            message_id,
+            data,
+            raw_message,
+            *args,
+            bot=bot,
+            **kwargs,
+        )
+
+    chat_group_ids = [
+        chat_group_id
+        for chat_group_id, in db.session.query(ChatGroup.id)
+        .filter(
+            ChatGroup.chat_id == chat_id,
+            ChatGroup.status == 0,
+        )
+        .all()
+    ]
+    if not chat_group_ids:
+        return send_manage_fail_message(
+            "当前群还没绑定仓库",
+            app_id,
+            message_id,
+            data,
+            raw_message,
+            *args,
+            bot=bot,
+            **kwargs,
+        )
+
+    unbind_count = (
+        db.session.query(Repo)
+        .filter(
+            Repo.chat_group_id.in_(chat_group_ids),
+            Repo.status == 0,
+        )
+        .update(dict(chat_group_id=None), synchronize_session=False)
+    )
+    if unbind_count <= 0:
+        return send_manage_fail_message(
+            "当前群还没绑定仓库",
+            app_id,
+            message_id,
+            data,
+            raw_message,
+            *args,
+            bot=bot,
+            **kwargs,
+        )
+
+    db.session.commit()
+    return send_manage_success_message(
+        f"已解绑当前群与 {unbind_count} 个仓库的关联",
+        app_id,
+        message_id,
+        data,
+        raw_message,
+        *args,
+        bot=bot,
+        **kwargs,
+    )
 
 
 @celery.task()

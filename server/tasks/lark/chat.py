@@ -6,7 +6,6 @@ from urllib.parse import urlparse
 
 from celery_app import app, celery
 from model.schema import (
-    ChatGroup,
     CodeApplication,
     CodeUser,
     IMUser,
@@ -29,7 +28,6 @@ from .base import (
     get_bot_by_application_id,
     get_chat_group_by_chat_id,
     get_git_object_by_message_id,
-    get_repo_name_by_repo_id,
     with_authenticated_github,
 )
 
@@ -52,14 +50,7 @@ def send_chat_failed_tip(content, app_id, message_id, *args, bot=None, **kwargs)
 @celery.task()
 def send_chat_manual(app_id, message_id, content, data, *args, **kwargs):
     chat_id = data["event"]["message"]["chat_id"]
-    chat_group = (
-        db.session.query(ChatGroup)
-        .filter(
-            ChatGroup.chat_id == chat_id,
-            ChatGroup.status == 0,
-        )
-        .first()
-    )
+    chat_group = get_chat_group_by_chat_id(chat_id, app_id=app_id)
     if not chat_group:
         return send_chat_failed_tip(
             "当前群还没绑定仓库。请在群里执行：/match https://github.com/<org>/<repo>",
@@ -126,13 +117,47 @@ def send_chat_url_message(
     app_id, message_id, content, data, *args, typ="view", **kwargs
 ):
     chat_id = data["event"]["message"]["chat_id"]
-    chat_group = get_chat_group_by_chat_id(chat_id)
-    repo_name = get_repo_name_by_repo_id(chat_group.repo_id)
-    # TODO repo_name可能为空
-    # if not repo:
-    #     return send_chat_failed_tip(
-    #         "找不到Repo", app_id, message_id, content, data, *args, **kwargs
-    #     )
+    chat_group = get_chat_group_by_chat_id(chat_id, app_id=app_id)
+    if not chat_group:
+        return send_chat_failed_tip(
+            "当前群还没绑定仓库。请先在群里执行：/match https://github.com/<org>/<repo>",
+            app_id,
+            message_id,
+            content,
+            data,
+            *args,
+            **kwargs,
+        )
+
+    repos = (
+        db.session.query(Repo)
+        .filter(
+            Repo.chat_group_id == chat_group.id,
+            Repo.status == 0,
+        )
+        .all()
+    )
+    if len(repos) > 1:
+        return send_chat_failed_tip(
+            "当前群有多个项目，无法唯一确定仓库",
+            app_id,
+            message_id,
+            content,
+            data,
+            *args,
+            **kwargs,
+        )
+    if len(repos) == 0:
+        return send_chat_failed_tip(
+            "找不到项目",
+            app_id,
+            message_id,
+            content,
+            data,
+            *args,
+            **kwargs,
+        )
+    repo_name = repos[0].name
     bot, application = get_bot_by_application_id(app_id)
     if not application:
         return send_chat_failed_tip(
@@ -216,13 +241,7 @@ def create_issue(
         )
 
     chat_id = data["event"]["message"]["chat_id"]
-    chat_group = (
-        db.session.query(ChatGroup)
-        .filter(
-            ChatGroup.chat_id == chat_id,
-        )
-        .first()
-    )
+    chat_group = get_chat_group_by_chat_id(chat_id, app_id=app_id)
     if not chat_group:
         return send_chat_failed_tip(
             "当前群还没绑定仓库。请先在群里执行：/match https://github.com/<org>/<repo>",
@@ -401,13 +420,7 @@ def sync_issue(
         )
 
     chat_id = data["event"]["message"]["chat_id"]
-    chat_group = (
-        db.session.query(ChatGroup)
-        .filter(
-            ChatGroup.chat_id == chat_id,
-        )
-        .first()
-    )
+    chat_group = get_chat_group_by_chat_id(chat_id, app_id=app_id)
     if not chat_group:
         return send_chat_failed_tip(
             "找不到项目群", app_id, message_id, content, data, *args, **kwargs

@@ -11,17 +11,28 @@ from utils.constant import GitHubPermissionError
 from utils.redis import RedisStorage
 
 
-def get_chat_group_by_chat_id(chat_id):
-    chat_group = (
-        db.session.query(ChatGroup)
-        .filter(
-            ChatGroup.chat_id == chat_id,
-            ChatGroup.status == 0,
-        )
-        .first()
+def get_chat_group_by_chat_id(chat_id, app_id=None):
+    query = db.session.query(ChatGroup).filter(
+        ChatGroup.chat_id == chat_id,
+        ChatGroup.status == 0,
     )
+    if app_id:
+        im_application_id = (
+            db.session.query(IMApplication.id)
+            .filter(
+                or_(
+                    IMApplication.app_id == app_id,
+                    IMApplication.id == app_id,
+                ),
+                IMApplication.status.in_([0, 1]),
+            )
+            .limit(1)
+            .scalar()
+        )
+        if im_application_id:
+            query = query.filter(ChatGroup.im_application_id == im_application_id)
 
-    return chat_group
+    return query.order_by(ChatGroup.modified.desc()).first()
 
 
 def get_repo_name_by_repo_id(repo_id):

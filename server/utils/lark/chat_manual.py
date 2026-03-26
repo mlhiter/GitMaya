@@ -30,7 +30,11 @@ class ChatManual(FeishuMessageCard):
             #     else None,
             # ),
             FeishuMessageDiv(
-                content="**🗄 关联新仓库至当前群聊 **\n*群聊下回复「/match + repo url」 *",
+                content="**🗄 关联新仓库至当前群聊 **\n*群聊下回复「/match + repo url」或「/match --replace + repo url」*",
+                tag="lark_md",
+            ),
+            FeishuMessageDiv(
+                content="**🧹 解绑当前群仓库 **\n*群聊下回复「/unmatch」 *",
                 tag="lark_md",
             ),
             FeishuMessageDiv(

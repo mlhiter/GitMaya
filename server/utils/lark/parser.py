@@ -19,6 +19,7 @@ class GitMayaLarkParser(object):
             "/man",
             "/bind",
             "/match",
+            "/unmatch",
             "/issue",
             "/new",
             "/view",
@@ -68,9 +69,17 @@ class GitMayaLarkParser(object):
         parser_bind.set_defaults(func=self.on_bind)
 
         parser_match = self.subparsers.add_parser("/match", exit_on_error=False)
+        parser_match.add_argument(
+            "--replace",
+            action="store_true",
+            help="replace current chat repo bindings before binding new repo",
+        )
         parser_match.add_argument("repo_url", nargs="?")
         parser_match.add_argument("chat_name", nargs="?")
         parser_match.set_defaults(func=self.on_match)
+
+        parser_unmatch = self.subparsers.add_parser("/unmatch")
+        parser_unmatch.set_defaults(func=self.on_unmatch)
 
         # /issue [title] [@user_1] [@user_2] [[label_1],[label2]]
         parser_issue = self.subparsers.add_parser("/issue")
@@ -213,10 +222,10 @@ class GitMayaLarkParser(object):
 
     def on_match(self, param, unkown, *args, **kwargs):
         logging.info("on_match %r %r", vars(param), unkown)
-        if not param.repo_url and not param.chat_name:
+        if not param.repo_url:
             logging.error("return")
             tasks.send_manage_fail_message.delay(
-                "参数缺失。用法：/match https://github.com/<org>/<repo> [群名]",
+                "参数缺失。用法：/match [--replace] https://github.com/<org>/<repo> [群名]",
                 *args,
                 **kwargs,
             )
@@ -225,9 +234,15 @@ class GitMayaLarkParser(object):
                 param.repo_url,
                 param.chat_name,
                 *args,
+                replace=param.replace,
                 **kwargs,
             )
         return "match", param, unkown
+
+    def on_unmatch(self, param, unkown, *args, **kwargs):
+        logging.info("on_unmatch %r %r", vars(param), unkown)
+        tasks.unmatch_chat_group_repo.delay(*args, **kwargs)
+        return "unmatch", param, unkown
 
     def on_issue(self, param, unkown, *args, **kwargs):
         logging.info("on_issue %r %r", vars(param), unkown)
@@ -602,7 +617,9 @@ if __name__ == "__main__":
         "/man",
         "/bind",
         "/match",
+        "/unmatch",
         "/match repo_url",
+        "/match --replace repo_url",
         "/match repo_url chat_name",
         "/new",
         "/view",
