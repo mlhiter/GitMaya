@@ -8,17 +8,16 @@ import {
   NavbarMenuItem,
 } from '@nextui-org/navbar';
 import { Link as NextLink } from '@nextui-org/link';
-import { Tooltip, Image, Button } from '@nextui-org/react';
+import { Button } from '@nextui-org/react';
 
 import { siteConfig } from '@/config';
 import clsx from 'clsx';
-import { GithubIcon, Logo, LarkWhiteIcon, SolarIcon } from '@/components/icons';
+import { GithubIcon, Logo } from '@/components/icons';
 import { I18nSwitch } from '@/components/i18n-switch';
 
 import { useTranslation } from 'react-i18next';
 import { useAccountStore } from '@/stores';
 import { Avatar } from '@/components/avatar';
-import LarkQR from '@/assets/lark-group-QR.jpg';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 
 export const Navbar = () => {
@@ -76,19 +75,6 @@ export const Navbar = () => {
         <NavbarItem className="hidden sm:flex gap-3">
           <NextLink isExternal href={siteConfig.links.github} aria-label="Github">
             <GithubIcon className="text-[#d9d4c7] hover:text-[#f6d27c] transition-colors" />
-          </NextLink>
-          <Tooltip
-            delay={300}
-            content={<Image src={LarkQR} width={300} />}
-            placement="bottom"
-            className="p-0 bg-transparent"
-          >
-            <span className="cursor-pointer">
-              <LarkWhiteIcon className="text-[#d9d4c7] hover:text-[#f6d27c] transition-colors" />
-            </span>
-          </Tooltip>
-          <NextLink isExternal href={siteConfig.links.document} target="_blank">
-            <SolarIcon className="text-[#d9d4c7] hover:text-[#f6d27c] transition-colors" />
           </NextLink>
           <I18nSwitch />
         </NavbarItem>

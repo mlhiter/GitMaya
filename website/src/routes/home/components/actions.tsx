@@ -32,14 +32,6 @@ export const Actions: React.FC = () => {
             <GithubIcon className="h-4 w-4" />
             {t('Try with your github')}
           </Link>
-          <a
-            href="https://gitmaya-doc.netlify.app/"
-            className="gm-secondary-btn inline-flex items-center rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em]"
-            target="_blank"
-            rel="noreferrer"
-          >
-            {t('Learn more details')}
-          </a>
         </div>
       </div>
     </div>

@@ -13,8 +13,6 @@ import {
   YoutubeIcon,
 } from '@/components/icons';
 
-import { siteConfig } from '@/config';
-
 export const TextLogo = (props: SVGProps<SVGSVGElement>) => (
   <svg fill="none" viewBox="0 0 423 120" xmlns="http://www.w3.org/2000/svg" {...props}>
     <path
@@ -78,7 +76,7 @@ export const Cobe = () => {
   }, []);
 
   return (
-    <a
+    <div
       style={{
         width: '100%',
         maxWidth: 820,
@@ -87,9 +85,6 @@ export const Cobe = () => {
         position: 'relative',
         display: 'block',
       }}
-      href={siteConfig.links.bilibili}
-      target="_blank"
-      rel="noreferrer"
       className="group"
     >
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-4 text-center">
@@ -166,6 +161,6 @@ export const Cobe = () => {
           }
         }}
       />
-    </a>
+    </div>
   );
 };

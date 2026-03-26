@@ -68,10 +68,6 @@ export const StepGuide = ({
   const { t } = useTranslation();
   const steps: StepProps[] = [
     {
-      title: t('Contact details'),
-      description: t('How can we communicate with you?'),
-    },
-    {
       title: t('Add your code repository'),
       description: t('GitMaya connects to GitHub.'),
     },

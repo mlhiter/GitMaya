@@ -42,8 +42,7 @@ const Login = () => {
               {t('Welcome to')} GitMaya
             </h1>
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-[var(--gm-text-muted)] sm:text-base">
-              {t("Sign in with your team's repository")}. {t('preferred')}. {t('Learn more details')}
-              .
+              {t("Sign in with your team's repository")}.
             </p>
 
             <div className="mt-8 grid gap-3 text-sm text-[var(--gm-text-muted)] sm:grid-cols-2">

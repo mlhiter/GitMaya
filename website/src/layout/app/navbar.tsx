@@ -9,10 +9,9 @@ import {
 } from '@nextui-org/navbar';
 
 import { link as linkStyles } from '@nextui-org/theme';
-import { Tooltip, Image } from '@nextui-org/react';
 
 import clsx from 'clsx';
-import { GithubIcon, Logo, LarkWhiteIcon, BoxIcon } from '@/components/icons';
+import { GithubIcon, Logo, LarkWhiteIcon } from '@/components/icons';
 // import { ThemeSwitch } from '@/components/theme-switch';
 import { I18nSwitch } from '@/components/i18n-switch';
 
@@ -40,7 +39,6 @@ import {
 } from '@nextui-org/react';
 import { useEffect, useMemo } from 'react';
 import useSWRMutation from 'swr/mutation';
-import LarkQR from '@/assets/lark-group-QR.jpg';
 import { isNull } from 'lodash-es';
 
 export const Navbar = () => {
@@ -193,18 +191,6 @@ export const Navbar = () => {
             <Link isExternal href={appSiteConfig.links.github} aria-label="Github">
               <GithubIcon className="text-[#d9d4c7] hover:text-[#f6d27c] transition-colors" />
             </Link>
-            <Tooltip
-              content={<Image src={LarkQR} width={300} />}
-              placement="bottom"
-              className="p-0 bg-transparent"
-            >
-              <span className="cursor-pointer">
-                <LarkWhiteIcon className="text-[#d9d4c7] hover:text-[#f6d27c] transition-colors" />
-              </span>
-            </Tooltip>
-            <Link isExternal href={appSiteConfig.links.invitation} target="_blank">
-              <BoxIcon className="text-[#d9d4c7] hover:text-[#f6d27c] transition-colors" />
-            </Link>
             {/* <ThemeSwitch /> */}
             <I18nSwitch />
           </NavbarItem>
@@ -281,17 +267,11 @@ export const Navbar = () => {
                 </div>
                 {!account?.current_team ? (
                   <p className="text-sm text-[var(--gm-text-muted)] text-center">
-                    {t(
-                      'In order for Gitmaya to work properly,we need to add it to your code repository.Learn about our data privacy policy, permissions and security measures here.',
-                    )}
+                    {t('Add your code repository')} {t('GitMaya connects to GitHub.')}
                   </p>
                 ) : (
                   <p className="text-sm text-[var(--gm-text-muted)] text-center">
-                    {t('In order for Gitmaya to work properly, we need to add')}
-                    <span className="text-maya"> Lark </span>{' '}
-                    {t(
-                      'to your team. Learn about our data privacy policy, permissions and security measures here.',
-                    )}
+                    {t('Add your Lark workspace')} {t('Enable developer feedback and PR - Channels.')}
                   </p>
                 )}
 
@@ -299,7 +279,7 @@ export const Navbar = () => {
                   {t('Continue onboarding')}
                 </Button>
                 <Button color="danger" variant="light" onPress={onClose}>
-                  {t('Keep exploring (remind me next time)')}
+                  {t('Cancel')}
                 </Button>
               </ModalBody>
             </>

@@ -1,25 +1,18 @@
 {
   "Make Git Flow In Chat": "Make Git Flow In Chat",
   "Try with your github": "Try with your github org",
-  "Learn more details": "Learn more details",
   "Engineering indicators.": "Engineering indicators.",
-  "Beta.Tell us what you think": "Beta.Tell us what you think",
   "Indicators": "Indicators",
   "stepHeaders": {
     "0": {
-      "title": "Let's meet each other! 👋",
-      "content1": "We would like to be able to reach out to you via email to better understand the needs of your team and to provide tailored assistance if needed.",
-      "content2": "If you require help or want to provide feedback to GitMaya, you can also contact us at: hello@gitmaya.com."
+      "title": "Connect to your code repository",
+      "content1": "Choose the code repository that your team uses. Follow the installation process so that GitMaya can connect and keep track of your development metrics.",
+      "content2": "To get you started, GitMaya will process data from the last three months. This can take a few minutes depending on the size of your organization."
     },
     "1": {
-      "title": "Connect to your code repository",
-      "content1": "Choose the code repository that your team uses. Follow the installation process so that GitMaya can connect and keep track of your development metrics.",
-      "content2": "To get you started, GitMaya will process data from the last three months. This can take a few minutes depending on the size of your organization."
-    },
-    "2": {
-      "title": "Connect to your code repository",
-      "content1": "Choose the code repository that your team uses. Follow the installation process so that GitMaya can connect and keep track of your development metrics.",
-      "content2": "To get you started, GitMaya will process data from the last three months. This can take a few minutes depending on the size of your organization."
+      "title": "Connect to your Lark workspace",
+      "content1": "Add GitMaya to your Lark workspace to enable developer feedback and PR channel collaboration.",
+      "content2": "After setup, your team can receive and handle code collaboration updates directly in Lark."
     }
   },
   "Welcome to": "Welcome to",
@@ -37,33 +30,17 @@
   "Actions": "Actions",
   "Repo Manager": "Repo Manager",
   "Info": "Info",
-  "We use cookies in this website to give you the best experience on our site.": "We use cookies in this website to give you the best experience on our site.",
   "Sign in": "Sign in",
   "Complete your team's onboarding...": "Complete your team's onboarding...",
   "Complete your team's onboarding": "Complete your team's onboarding",
-  "In order for Gitmaya to work properly,we need to add it to your code repository.Learn about our data privacy policy, permissions and security measures here.": "In order for Gitmaya to work properly,we need to add it to your code repository.Learn about our data privacy policy, permissions and security measures here.",
-  "In order for Gitmaya to work properly, we need to add": "In order for Gitmaya to work properly, we need to add",
-  "to your team. Learn about our data privacy policy, permissions and security measures here.": "to your team. Learn about our data privacy policy, permissions and security measures here.",
   "Continue onboarding": "Continue onboarding",
-  "Keep exploring (remind me next time)": "Keep exploring (remind me next time)",
   "Log Out": "Log Out",
   "Loading...": "Loading...",
-  "Contact details": "Contact details",
-  "How can we communicate with you?": "How can we communicate with you?",
   "Add your code repository": "Add your code repository",
   "GitMaya connects to GitHub.": "GitMaya connects to GitHub.",
   "Add your Lark workspace": "Add your Lark workspace",
   "Enable developer feedback and PR - Channels.": "Enable developer feedback and PR - Channels.",
-  "First name": "First name",
-  "Enter your first name": "Enter your first name",
-  "Last name": "Last name",
-  "Enter your last name": "Enter your last name",
-  "Email address": "Email address",
-  "Enter your email": "Enter your email",
   "Role": "Role",
-  "Select a role": "Select a role",
-  "I'd like to subscribe to the monthly newsletter": "I'd like to subscribe to the monthly newsletter",
-  "Subscribe to our monthly newsletter to be the first one to hear about product updates. No spam, we promise.": "Subscribe to our monthly newsletter to be the first one to hear about product updates. No spam, we promise.",
   "Save": "Save",
   "Cancel": "Cancel",
   "Developer": "Developer",

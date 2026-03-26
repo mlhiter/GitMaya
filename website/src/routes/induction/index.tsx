@@ -1,5 +1,5 @@
 import { Footer } from '@/layout/footer';
-import { ContactForm, StepGuide, GithubInstallation, WorkSpaceInstallation } from './components';
+import { StepGuide, GithubInstallation, WorkSpaceInstallation } from './components';
 import { useEffect, useState } from 'react';
 import { HeaderContent } from '@/layout/app';
 import { useTeamInfoStore } from '@/stores';
@@ -11,9 +11,8 @@ type StepComponentType = React.FC<{
 }>;
 
 const stepComponents: Record<number, StepComponentType> = {
-  0: ContactForm,
-  1: GithubInstallation,
-  2: WorkSpaceInstallation,
+  0: GithubInstallation,
+  1: WorkSpaceInstallation,
 };
 
 const Induction = () => {
@@ -23,7 +22,7 @@ const Induction = () => {
   const StepComponent = stepComponents[step];
   useEffect(() => {
     if (teamInfo?.code_application && !teamInfo.im_application) {
-      setStep(2);
+      setStep(1);
     }
   }, [teamInfo?.code_application, teamInfo?.im_application]);
 

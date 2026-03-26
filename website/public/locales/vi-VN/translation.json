@@ -1,25 +1,18 @@
 {
   "Make Git Flow In Chat": "Tạo luồng Git trong Chat",
   "Try with your github": "Thử nghiệm với GitHub của bạn",
-  "Learn more details": "Tìm hiểu thêm chi tiết",
   "Engineering indicators.": "Các chỉ số kỹ thuật.",
-  "Beta.Tell us what you think": "Beta. Hãy cho chúng tôi biết ý kiến của bạn",
   "Indicators": "Chỉ số",
   "stepHeaders": {
     "0": {
-      "title": "Hãy gặp nhau! 👋",
-      "content1": "Chúng tôi muốn có khả năng liên lạc với bạn qua email để hiểu rõ nhu cầu của đội của bạn và cung cấp sự hỗ trợ tùy chỉnh nếu cần.",
-      "content2": "Nếu bạn cần giúp đỡ hoặc muốn đưa ra phản hồi cho GitMaya, bạn cũng có thể liên hệ với chúng tôi qua: hello@gitmaya.com."
+      "title": "Kết nối với kho mã nguồn của bạn",
+      "content1": "Chọn kho mã nguồn mà đội của bạn đang sử dụng. Theo dõi quy trình cài đặt để GitMaya có thể kết nối và theo dõi các chỉ số phát triển của bạn.",
+      "content2": "Để bắt đầu, GitMaya sẽ xử lý dữ liệu trong ba tháng qua. Việc này có thể mất vài phút tùy thuộc vào kích thước của tổ chức của bạn."
     },
     "1": {
-      "title": "Kết nối với kho mã nguồn của bạn",
-      "content1": "Chọn kho mã nguồn mà đội của bạn đang sử dụng. Theo dõi quy trình cài đặt để GitMaya có thể kết nối và theo dõi các chỉ số phát triển của bạn.",
-      "content2": "Để bắt đầu, GitMaya sẽ xử lý dữ liệu trong ba tháng qua. Việc này có thể mất vài phút tùy thuộc vào kích thước của tổ chức của bạn."
-    },
-    "2": {
-      "title": "Kết nối với kho mã nguồn của bạn",
-      "content1": "Chọn kho mã nguồn mà đội của bạn đang sử dụng. Theo dõi quy trình cài đặt để GitMaya có thể kết nối và theo dõi các chỉ số phát triển của bạn.",
-      "content2": "Để bắt đầu, GitMaya sẽ xử lý dữ liệu trong ba tháng qua. Việc này có thể mất vài phút tùy thuộc vào kích thước của tổ chức của bạn."
+      "title": "Kết nối với không gian làm việc Lark của bạn",
+      "content1": "Thêm GitMaya vào không gian làm việc Lark để bật phản hồi từ nhà phát triển và cộng tác kênh PR.",
+      "content2": "Sau khi cấu hình, đội của bạn có thể nhận và xử lý cập nhật cộng tác mã nguồn trực tiếp trong Lark."
     }
   },
   "Welcome to": "Chào mừng đến với",
@@ -37,31 +30,17 @@
   "Actions": "Hành động",
   "Repo Manager": "Quản lý Repo",
   "Info": "Thông tin",
-  "We use cookies in this website to give you the best experience on our site.": "Chúng tôi sử dụng cookie trên trang web này để mang lại trải nghiệm tốt nhất cho bạn.",
   "Sign in": "Đăng nhập",
   "Complete your team's onboarding...": "Hoàn tất quá trình giới thiệu cho đội của bạn...",
   "Complete your team's onboarding": "Hoàn tất quá trình giới thiệu cho đội của bạn",
-  "In order for Gitmaya to work properly, we need to add it to your code repository. Learn about our data privacy policy, permissions and security measures here.": "Để Gitmaya hoạt động đúng cách, chúng ta cần thêm nó vào kho mã nguồn của bạn. Tìm hiểu về chính sách bảo mật dữ liệu, quyền hạn và biện pháp an ninh của chúng tôi tại đây.",
   "Continue onboarding": "Tiếp tục giới thiệu",
-  "Keep exploring (remind me next time)": "Tiếp tục khám phá (nhắc tôi lần sau)",
   "Log Out": "Đăng xuất",
   "Loading...": "Đang tải...",
-  "Contact details": "Thông tin liên hệ",
-  "How can we communicate with you?": "Chúng tôi có thể liên lạc với bạn như thế nào?",
   "Add your code repository": "Thêm kho mã nguồn của bạn",
   "GitMaya connects to GitHub.": "GitMaya kết nối với GitHub.",
   "Add your Lark workspace": "Thêm không gian làm việc Lark của bạn",
   "Enable developer feedback and PR - Channels.": "Bật phản hồi từ nhà phát triển và kênh PR.",
-  "First name": "Tên",
-  "Enter your first name": "Nhập tên của bạn",
-  "Last name": "Họ",
-  "Enter your last name": "Nhập họ của bạn",
-  "Email address": "Địa chỉ email",
-  "Enter your email": "Nhập địa chỉ email của bạn",
   "Role": "Vai trò",
-  "Select a role": "Chọn một vai trò",
-  "I'd like to subscribe to the monthly newsletter": "Tôi muốn đăng ký nhận bản tin hàng tháng",
-  "Subscribe to our monthly newsletter to be the first one to hear about product updates. No spam, we promise.": "Đăng ký nhận bản tin hàng tháng của chúng tôi để là người đầu tiên nghe về cập nhật sản phẩm. Không có thư rác, chúng tôi hứa.",
   "Save": "Lưu",
   "Cancel": "Hủy",
   "Developer": "Nhà phát triển",

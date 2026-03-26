@@ -1,23 +1,17 @@
 {
   "Make Git Flow In Chat": "聊天即协同",
   "Try with your github": "立刻为 GitHub 组织安装",
-  "Learn more details": "了解更多详情",
   "Engineering indicators.": "工程指标。",
   "stepHeaders": {
     "0": {
-      "title": "让我们互相认识一下！👋",
-      "content1": "我们希望能通过电子邮件与您联系，更好地了解您团队的需求，并在需要时提供定制的帮助。",
-      "content2": "如果您需要帮助或想向 GitMaya 提供反馈，您也可以通过以下方式与我们联系：hello@gitmaya.com。"
+      "title": "连接到您的代码仓库",
+      "content1": "选择您的团队使用的代码仓库。按照安装过程操作，以便 GitMaya 可以连接并跟踪您的开发指标。",
+      "content2": "为了让您开始使用，GitMaya 将处理过去三个月的数据。这可能需要一些时间，具体取决于您组织的大小。"
     },
     "1": {
-      "title": "连接到您的代码仓库",
-      "content1": "选择您的团队使用的代码仓库。按照安装过程操作，以便 GitMaya 可以连接并跟踪您的开发指标。",
-      "content2": "为了让您开始使用，GitMaya 将处理过去三个月的数据。这可能需要一些时间，具体取决于您组织的大小。"
-    },
-    "2": {
-      "title": "连接到您的代码仓库",
-      "content1": "选择您的团队使用的代码仓库。按照安装过程操作，以便 GitMaya 可以连接并跟踪您的开发指标。",
-      "content2": "为了让您开始使用，GitMaya 将处理过去三个月的数据。这可能需要一些时间，具体取决于您组织的大小。"
+      "title": "连接到您的飞书工作区",
+      "content1": "将 GitMaya 添加到飞书工作区，启用开发者反馈与 PR 通知协作。",
+      "content2": "完成后，您可以直接在飞书中接收并处理代码协作信息。"
     }
   },
   "Welcome to": "欢迎加入",
@@ -35,33 +29,17 @@
   "Actions": "操作",
   "Repo Manager": "仓库列表",
   "Info": "信息",
-  "We use cookies in this website to give you the best experience on our site.": "我们在这个网站使用cookies，以提供给您最佳的使用体验。",
   "Sign in": "登录",
   "Complete your team's onboarding...": "完成团队的入职流程...",
   "Complete your team's onboarding": "完成团队的入职流程",
-  "In order for Gitmaya to work properly,we need to add it to your code repository.Learn about our data privacy policy, permissions and security measures here.": "为了使Gitmaya正常运作，我们需要将其添加到您的代码仓库中。在此了解我们的数据隐私政策、权限和安全措施。",
-  "In order for Gitmaya to work properly, we need to add": "为了使Gitmaya正常运作，我们需要添加",
-  "to your team. Learn about our data privacy policy, permissions and security measures here.": "到您的团队。在此了解我们的数据隐私政策、权限和安全措施。",
   "Continue onboarding": "继续入职流程",
-  "Keep exploring (remind me next time)": "继续探索（下次提醒我）",
   "Log Out": "登出",
   "Loading...": "加载中...",
-  "Contact details": "联系方式",
-  "How can we communicate with you?": "我们如何与您联系？",
   "Add your code repository": "添加您的代码仓库",
   "GitMaya connects to GitHub.": "GitMaya连接到GitHub。",
   "Add your Lark workspace": "添加您的飞书工作区",
   "Enable developer feedback and PR - Channels.": "启用开发者反馈和PR - 通道。",
-  "First name": "名字",
-  "Enter your first name": "请输入您的名字",
-  "Last name": "姓氏",
-  "Enter your last name": "请输入您的姓氏",
-  "Email address": "电子邮件地址",
-  "Enter your email": "请输入您的电子邮件",
   "Role": "角色",
-  "Select a role": "选择一个角色",
-  "I'd like to subscribe to the monthly newsletter": "我想订阅每月通讯",
-  "Subscribe to our monthly newsletter to be the first one to hear about product updates. No spam, we promise.": "订阅我们的每月通讯，第一时间了解产品更新。我们承诺不会发送垃圾邮件。",
   "Save": "保存",
   "Cancel": "取消",
   "Developer": "开发者",
