@@ -27,18 +27,18 @@ const Induction = () => {
   }, [teamInfo?.code_application, teamInfo?.im_application]);
 
   return (
-    <div className="bg-black-light-light flex-grow flex flex-col">
-      <div className="bg-black">
+    <div className="flex-grow flex flex-col">
+      <div>
         <HeaderContent title={t(`stepHeaders.${step}.title`)}>
-          <p className="text-md text-black-light-light max-w-7xl px-4 sm:px-6 lg:px-8 mx-auto mt-6">
+          <p className="text-md text-[var(--gm-text-muted)] max-w-7xl px-4 sm:px-6 lg:px-8 mx-auto mt-6">
             {t(`stepHeaders.${step}.content1`)}
           </p>
-          <p className="text-md text-black-light-light max-w-7xl px-4 sm:px-6 lg:px-8 mx-auto mt-6">
+          <p className="text-md text-[var(--gm-text-muted)] max-w-7xl px-4 sm:px-6 lg:px-8 mx-auto mt-6">
             {t(`stepHeaders.${step}.content2`)}
           </p>
         </HeaderContent>
       </div>
-      <main className="container max-w-7xl mx-auto px-4 sm:px-6 flex-grow bg-white">
+      <main className="gm-panel container max-w-7xl mx-auto px-4 sm:px-6 flex-grow rounded-3xl py-4 sm:py-6">
         <div className="grow flex max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <StepGuide step={step} setStep={setStep} />
           <div className="grow p-8">{<StepComponent step={step} setStep={setStep} />}</div>

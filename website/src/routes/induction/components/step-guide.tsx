@@ -106,13 +106,13 @@ export const StepGuide = ({
                 <span
                   className={clsx('text-sm font-medium', {
                     'text-maya': index === step,
-                    'text-gray-500': step <= index,
-                    'text-black': step > index,
+                    'text-[var(--gm-text-muted)]': step <= index,
+                    'text-[var(--gm-text-main)]': step > index,
                   })}
                 >
                   {stepProps.title}
                 </span>
-                <span className="text-sm text-gray-500">{stepProps.description}</span>
+                <span className="text-sm text-[var(--gm-text-muted)]">{stepProps.description}</span>
               </span>
             </div>
           </li>
