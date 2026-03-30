@@ -18,6 +18,8 @@ export const bindTeamMember = (
   },
 ) => request.put(`/api/team/${team_id}/member`, data);
 
+export const refreshGithubMembers = (team_id: string) => request.post(`/api/team/${team_id}/member`);
+
 //FIXME
 export const getPlatformMember = <T>(team_id: string, platform: string) =>
   request.get<T>(`/api/team/${team_id}/${platform}/user`, {

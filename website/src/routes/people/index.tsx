@@ -17,6 +17,7 @@ import {
   getPlatformMember,
   getTeamMember,
   bindTeamMember,
+  refreshGithubMembers,
   updatePlatformUser,
   getTaskStatus,
 } from '@/api';
@@ -31,9 +32,12 @@ import { useTranslation } from 'react-i18next';
 
 const People = () => {
   const { t } = useTranslation();
-  const controls = useAnimation();
-  const [taskId, setTaskId] = useState<string>('');
-  const [refreshInterval, setRefreshInterval] = useState(0);
+  const githubControls = useAnimation();
+  const larkControls = useAnimation();
+  const [githubTaskId, setGithubTaskId] = useState<string>('');
+  const [larkTaskId, setLarkTaskId] = useState<string>('');
+  const [githubRefreshInterval, setGithubRefreshInterval] = useState(0);
+  const [larkRefreshInterval, setLarkRefreshInterval] = useState(0);
   const account = useAccountStore.use.account();
 
   const team_id = account?.current_team as string;
@@ -69,19 +73,33 @@ const People = () => {
     updatePlatformUser(team_id, 'lark'),
   );
 
+  const { trigger: triggerGithubMemberSync } = useSWRMutation(
+    `api/team/${team_id}/member/refresh`,
+    () => refreshGithubMembers(team_id),
+  );
+
   const { data, mutate } = useSwr(team_id ? `/api/team/${team_id}/member` : null, () =>
     getTeamMember(team_id),
   );
 
-  const { data: taskStatusData } = useSwr(
-    team_id && taskId ? `/api/team/${team_id}/task/${taskId}` : null,
-    () => getTaskStatus(team_id, taskId),
+  const { data: githubTaskStatusData } = useSwr(
+    team_id && githubTaskId ? `/api/team/${team_id}/task/${githubTaskId}` : null,
+    () => getTaskStatus(team_id, githubTaskId),
     {
-      refreshInterval,
+      refreshInterval: githubRefreshInterval,
     },
   );
 
-  const taskStatus = taskStatusData?.data?.status;
+  const { data: larkTaskStatusData } = useSwr(
+    team_id && larkTaskId ? `/api/team/${team_id}/task/${larkTaskId}` : null,
+    () => getTaskStatus(team_id, larkTaskId),
+    {
+      refreshInterval: larkRefreshInterval,
+    },
+  );
+
+  const githubTaskStatus = githubTaskStatusData?.data?.status;
+  const larkTaskStatus = larkTaskStatusData?.data?.status;
 
   const {
     data: larkUserData,
@@ -158,27 +176,71 @@ const People = () => {
   const refreshUser = useCallback(async () => {
     mutate();
     mutateLark();
-    toast.success('Refreshed!');
   }, [mutate, mutateLark]);
 
-  const refreshUserTask = useCallback(async () => {
+  const refreshGithubUserTask = useCallback(async () => {
+    const { data } = await triggerGithubMemberSync();
+    if (!data?.task_id) {
+      toast.error('Failed to start GitHub sync task');
+      return;
+    }
+    setGithubTaskId(data.task_id);
+  }, [triggerGithubMemberSync]);
+
+  const refreshLarkUserTask = useCallback(async () => {
     const { data } = await triggerLarkUser();
-    setTaskId(data?.task_id);
+    if (!data?.task_id) {
+      toast.error('Failed to start Lark sync task');
+      return;
+    }
+    setLarkTaskId(data.task_id);
   }, [triggerLarkUser]);
 
   useEffect(() => {
-    if (taskStatus === 'PENDING') {
-      controls.start({
+    if (githubTaskStatus === 'PENDING') {
+      githubControls.start({
         rotate: 360,
         transition: { duration: 2, repeat: Infinity },
       });
-      setRefreshInterval(1000);
-    } else if (taskStatus === 'SUCCESS') {
-      controls.stop();
-      refreshUser();
-      setRefreshInterval(0);
+      setGithubRefreshInterval(1000);
+      return;
     }
-  }, [taskStatus, controls, refreshUser]);
+
+    githubControls.stop();
+    setGithubRefreshInterval(0);
+
+    if (githubTaskStatus === 'SUCCESS') {
+      setGithubTaskId('');
+      mutate();
+      toast.success('GitHub members refreshed!');
+    } else if (githubTaskStatus === 'FAILURE') {
+      setGithubTaskId('');
+      toast.error('GitHub members sync failed');
+    }
+  }, [githubControls, githubTaskStatus, mutate]);
+
+  useEffect(() => {
+    if (larkTaskStatus === 'PENDING') {
+      larkControls.start({
+        rotate: 360,
+        transition: { duration: 2, repeat: Infinity },
+      });
+      setLarkRefreshInterval(1000);
+      return;
+    }
+
+    larkControls.stop();
+    setLarkRefreshInterval(0);
+
+    if (larkTaskStatus === 'SUCCESS') {
+      setLarkTaskId('');
+      refreshUser();
+      toast.success('Lark users refreshed!');
+    } else if (larkTaskStatus === 'FAILURE') {
+      setLarkTaskId('');
+      toast.error('Lark users sync failed');
+    }
+  }, [larkControls, larkTaskStatus, refreshUser]);
 
   return (
     <div className="flex-grow flex flex-col">
@@ -220,16 +282,24 @@ const People = () => {
                     <div className="flex items-center gap-2">
                       {column.name}
                       {column.uid === 'github' && (
-                        <RefreshIcon size={18} className="cursor-pointer" onClick={refreshUser} />
-                      )}
-                      {column.uid === 'lark' && (
-                        <motion.div animate={controls}>
+                        <motion.div animate={githubControls}>
                           <RefreshIcon
                             size={18}
                             className={clsx('cursor-pointer', {
-                              'cursor-not-allowed pointer-events-none': taskStatus === 'PENDING',
+                              'cursor-not-allowed pointer-events-none': githubTaskStatus === 'PENDING',
                             })}
-                            onClick={refreshUserTask}
+                            onClick={refreshGithubUserTask}
+                          />
+                        </motion.div>
+                      )}
+                      {column.uid === 'lark' && (
+                        <motion.div animate={larkControls}>
+                          <RefreshIcon
+                            size={18}
+                            className={clsx('cursor-pointer', {
+                              'cursor-not-allowed pointer-events-none': larkTaskStatus === 'PENDING',
+                            })}
+                            onClick={refreshLarkUserTask}
                           />
                         </motion.div>
                       )}
