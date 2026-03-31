@@ -1,12 +1,48 @@
 import os
 
 from app import app, db
+from celery import chain
 from celery_app import celery
 from model.schema import Issue, ObjID, PullRequest, Repo
 from tasks.github.repo import on_repository_updated
 from tasks.lark.issue import send_issue_card, send_issue_comment, update_issue_card
 from tasks.lark.pull_request import send_pull_request_comment
 from utils.github.model import IssueCommentEvent, IssueEvent
+
+
+def _upsert_issue_from_event(repo: Repo, issue_info) -> tuple[Issue, bool]:
+    """Update existing issue or create a new local issue record."""
+    issue = (
+        db.session.query(Issue)
+        .filter(
+            Issue.repo_id == repo.id,
+            Issue.issue_number == issue_info.number,
+        )
+        .first()
+    )
+
+    body = issue_info.body[:1000] if issue_info.body else None
+    created = False
+
+    if issue:
+        issue.title = issue_info.title
+        issue.description = body
+        issue.extra = issue_info.model_dump()
+    else:
+        issue = Issue(
+            id=ObjID.new_id(),
+            repo_id=repo.id,
+            issue_number=issue_info.number,
+            title=issue_info.title,
+            description=body,
+            extra=issue_info.model_dump(),
+        )
+        db.session.add(issue)
+        created = True
+
+    db.session.commit()
+
+    return issue, created
 
 
 @celery.task()
@@ -97,22 +133,34 @@ def on_issue_comment_created(event_dict: dict | list | None) -> list:
                 )
                 .first()
             )
-            if issue:
-                task = send_issue_comment.delay(
-                    issue.id, event.comment.body, event.sender.login
-                )
-                app.logger.info(
-                    "Dispatch issue comment sync: repo=%s issue=%s task=%s",
-                    repo.id,
-                    issue.issue_number,
-                    task.id,
-                )
-                return [task.id]
-            app.logger.warning(
-                "Skip issue_comment: issue record not found. repo=%s number=%s",
-                repo.id,
-                event.issue.number,
+            if not issue:
+                issue, created = _upsert_issue_from_event(repo, event.issue)
+                if created:
+                    workflow = chain(
+                        send_issue_card.si(issue.id),
+                        send_issue_comment.si(
+                            issue.id, event.comment.body, event.sender.login
+                        ),
+                    )
+                    task = workflow.delay()
+                    app.logger.info(
+                        "Backfill issue from comment and dispatch sync: repo=%s issue=%s task=%s",
+                        repo.id,
+                        issue.issue_number,
+                        task.id,
+                    )
+                    return [task.id]
+
+            task = send_issue_comment.delay(
+                issue.id, event.comment.body, event.sender.login
             )
+            app.logger.info(
+                "Dispatch issue comment sync: repo=%s issue=%s task=%s",
+                repo.id,
+                issue.issue_number,
+                task.id,
+            )
+            return [task.id]
     else:
         app.logger.warning(
             "Skip issue_comment: repo not found for repo_id=%s", event.repository.id
@@ -221,24 +269,18 @@ def on_issue_updated(event_dict: dict) -> list:
     if not repo:
         app.logger.error(f"Failed to find repo: {event_dict}")
         return []
-    # 修改 issue
-    issue = (
-        db.session.query(Issue)
-        .filter(Issue.repo_id == repo.id, Issue.issue_number == issue_info.number)
-        .first()
-    )
 
-    if issue:
-        issue.title = issue_info.title
-        issue.description = issue_info.body[:1000] if issue_info.body else None
-        issue.extra = issue_info.model_dump()
+    issue, created = _upsert_issue_from_event(repo, issue_info)
 
-        db.session.commit()
-
+    if created:
+        task = send_issue_card.delay(issue_id=issue.id)
+        app.logger.info(
+            "Backfill issue from update event: repo=%s issue=%s task=%s",
+            repo.id,
+            issue.issue_number,
+            task.id,
+        )
     else:
-        app.logger.error(f"Failed to find issue: {event_dict}")
-        return []
-
-    task = update_issue_card.delay(issue.id)
+        task = update_issue_card.delay(issue.id)
 
     return [task.id]
