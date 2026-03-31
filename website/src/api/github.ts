@@ -1,6 +1,8 @@
 import request from '@/utils/request';
+import type { AxiosRequestConfig } from 'axios';
 
-export const getAccount = () => request.get<Github.Account>('/api/account');
+export const getAccount = (config?: AxiosRequestConfig) =>
+  request.get<Github.Account>('/api/account', config);
 
 export const getTeams = () => request.get<Github.Team[]>('/api/team/');
 
@@ -18,7 +20,8 @@ export const bindTeamMember = (
   },
 ) => request.put(`/api/team/${team_id}/member`, data);
 
-export const refreshGithubMembers = (team_id: string) => request.post(`/api/team/${team_id}/member`);
+export const refreshGithubMembers = (team_id: string) =>
+  request.post(`/api/team/${team_id}/member`);
 
 //FIXME
 export const getPlatformMember = <T>(team_id: string, platform: string) =>

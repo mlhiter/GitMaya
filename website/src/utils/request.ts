@@ -51,7 +51,8 @@ request.interceptors.response.use(
     return response.data;
   },
   (error) => {
-    if (error?.response?.status === 401) {
+    const skipAuthRedirect = Boolean(error?.config?.skipAuthRedirect);
+    if (error?.response?.status === 401 && !skipAuthRedirect) {
       window.location.href = '/login';
     }
     handleRequest(-1);

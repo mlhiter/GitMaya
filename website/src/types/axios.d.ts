@@ -30,3 +30,9 @@ export interface CustomAxiosInstance extends AxiosInstance {
     config?: AxiosRequestConfig<D>,
   ): Promise<R>;
 }
+
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    skipAuthRedirect?: boolean;
+  }
+}
