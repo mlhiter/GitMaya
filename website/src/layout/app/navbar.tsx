@@ -29,7 +29,7 @@ import { getTeams, switchTeam } from '@/api';
 import {
   Select,
   SelectItem,
-  Link,
+  Link as NextLink,
   Modal,
   ModalContent,
   ModalHeader,
@@ -131,24 +131,24 @@ export const Navbar = () => {
       >
         <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
           <NavbarBrand as="li" className="gap-3 max-w-fit">
-            <Link className="flex justify-start items-center gap-1" href="/">
+            <RouterLink className="flex justify-start items-center gap-1" to="/">
               <Logo />
               <div className="gm-brand text-lg sm:text-xl font-bold mx-4 text-[#f2e8cf]">GitMaya</div>
-            </Link>
+            </RouterLink>
           </NavbarBrand>
           <ul className="hidden lg:flex gap-2 justify-start ml-2">
             {appSiteConfig.navItems.map((item) => (
               <NavbarItem key={item.href}>
-                <Link
+                <RouterLink
                   className={clsx(
                     linkStyles({ color: 'foreground' }),
-                    'rounded-full px-3 py-1.5 text-sm font-semibold text-[var(--gm-text-muted)] hover:text-[var(--gm-text-main)] data-[active=true]:bg-white/10 data-[active=true]:text-[var(--gm-text-main)]',
+                    'rounded-full px-3 py-1.5 text-sm font-semibold text-[var(--gm-text-muted)] hover:text-[var(--gm-text-main)]',
+                    location.pathname === item.href && 'bg-white/10 text-[var(--gm-text-main)]',
                   )}
-                  color="foreground"
-                  href={item.href}
+                  to={item.href}
                 >
                   {t(item.label)}
-                </Link>
+                </RouterLink>
               </NavbarItem>
             ))}
           </ul>
@@ -188,9 +188,9 @@ export const Navbar = () => {
             </Select>
           </NavbarItem>
           <NavbarItem className="hidden sm:flex gap-2">
-            <Link isExternal href={appSiteConfig.links.github} aria-label="Github">
+            <NextLink isExternal href={appSiteConfig.links.github} aria-label="Github">
               <GithubIcon className="text-[#d9d4c7] hover:text-[#f6d27c] transition-colors" />
-            </Link>
+            </NextLink>
             {/* <ThemeSwitch /> */}
             <I18nSwitch />
           </NavbarItem>
@@ -209,9 +209,9 @@ export const Navbar = () => {
           </NavbarItem>
         </NavbarContent>
         <NavbarContent className="sm:hidden basis-1 pl-4" justify="end">
-          <Link isExternal href={appSiteConfig.links.github} aria-label="Github">
+          <NextLink isExternal href={appSiteConfig.links.github} aria-label="Github">
             <GithubIcon className="text-default-500" />
-          </Link>
+          </NextLink>
           {/* <ThemeSwitch /> */}
           <NavbarMenuToggle />
         </NavbarContent>
@@ -219,7 +219,7 @@ export const Navbar = () => {
           <div className="mx-4 mt-2 flex flex-col gap-2">
             {appSiteConfig.navMenuItems.map((item, index) => (
               <NavbarMenuItem key={`${item}-${index}`}>
-                <Link
+                <NextLink
                   color={
                     index === 2
                       ? 'primary'
@@ -231,7 +231,7 @@ export const Navbar = () => {
                   size="lg"
                 >
                   {t(item.label)}
-                </Link>
+                </NextLink>
               </NavbarMenuItem>
             ))}
           </div>
