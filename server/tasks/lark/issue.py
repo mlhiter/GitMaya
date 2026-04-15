@@ -76,6 +76,7 @@ def get_assignees_by_issue(issue, team):
                 CodeUser.name.in_([i["login"] for i in assignees]),
             )
             .all()
+            if openid
         ]
     return assignees
 
@@ -184,14 +185,23 @@ def replace_images_with_keys(text, bot, is_private=False):
 
 
 def replace_code_name_to_im_name(text):
-    # 处理每行 at, 普通文本
+    if not text:
+        return text
+
+    mention_pattern = re.compile(
+        # Match GitHub style mentions and keep delimiters untouched.
+        r"(?<![A-Za-z0-9_-])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))(?=$|[^A-Za-z0-9-])"
+    )
+
     def replacement_func(match):
         code_name = match.group(1)
         user_id = get_openid_by_code_name(code_name)
+        if not user_id:
+            return match.group(0)
         # 消息卡片的md和回复消息md的at格式不同
         return f'<at id="{user_id}"></at>'
 
-    replaced_text = re.sub(r"@(\w+)", replacement_func, text)
+    replaced_text = mention_pattern.sub(replacement_func, text)
     return replaced_text
 
 
@@ -555,7 +565,10 @@ def update_issue_card(issue_id: str):
             team = db.session.query(Team).filter(Team.id == application.team_id).first()
             if application and team:
                 repo_url = f"https://github.com/{team.name}/{repo.name}"
-                message = gen_issue_card_by_issue(bot, issue, repo_url, team)
+                is_private = repo.extra.get("private", False)
+                message = gen_issue_card_by_issue(
+                    bot, issue, repo_url, team, is_private=is_private
+                )
                 result = bot.update(
                     message_id=issue.message_id,
                     content=message,
