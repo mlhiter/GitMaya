@@ -12,6 +12,7 @@ from model.team import (
     get_team_member,
     get_team_repo,
     is_team_admin,
+    reuse_im_application_for_team,
     save_im_application,
     set_team_member,
 )
@@ -37,6 +38,8 @@ def get_team_list():
 def get_team_detail(team_id):
     team = get_team_by_id(team_id, session["user_id"])
     code_application, im_application = get_application_info_by_team_id(team_id)
+    if not im_application:
+        im_application = reuse_im_application_for_team(team_id, session["user_id"])
     return jsonify(
         {
             "code": 0,

@@ -1,11 +1,12 @@
 // import { Link } from 'react-router-dom';
 import { GithubIcon } from '@/components/icons';
+import { getTeamInfo, switchTeam } from '@/api';
 import { useOauthDialog } from '@/hooks';
 import useSWRMutation from 'swr/mutation';
-import { switchTeam } from '@/api';
 import { useAccountStore } from '@/stores';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 export const GithubInstallation = ({
   setStep,
@@ -14,6 +15,7 @@ export const GithubInstallation = ({
   setStep: React.Dispatch<React.SetStateAction<number>>;
 }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const updateAccount = useAccountStore.use.updateAccount();
 
   const { trigger } = useSWRMutation(
@@ -38,11 +40,21 @@ export const GithubInstallation = ({
         toast.error('Installation is not allowed on personal repositories.');
         return;
       }
+      const teamId = data?.team_id;
+      if (!teamId) {
+        toast.error('Failed to get team after GitHub installation.');
+        return;
+      }
       await trigger({
-        current_team: data?.team_id,
+        current_team: teamId,
       });
       updateAccount();
-      setStep((step) => step + 1);
+      const { data: teamInfo } = await getTeamInfo(teamId);
+      if (teamInfo?.im_application) {
+        navigate('/app/people', { replace: true });
+        return;
+      }
+      setStep(1);
     },
   });
   return (

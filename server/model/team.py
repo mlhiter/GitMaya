@@ -135,6 +135,72 @@ def get_application_info_by_team_id(team_id):
     )
 
 
+def _get_latest_available_im_application_by_user_id(
+    user_id: str, exclude_team_id: str | None = None
+):
+    query = (
+        db.session.query(IMApplication)
+        .join(
+            Team,
+            Team.id == IMApplication.team_id,
+        )
+        .outerjoin(
+            TeamMember,
+            and_(
+                TeamMember.team_id == Team.id,
+                TeamMember.status == 0,
+            ),
+        )
+        .outerjoin(
+            BindUser,
+            and_(
+                BindUser.id == TeamMember.code_user_id,
+                BindUser.status == 0,
+            ),
+        )
+        .filter(
+            IMApplication.platform == "lark",
+            IMApplication.status.in_([0, 1]),
+            IMApplication.app_id.isnot(None),
+            IMApplication.app_secret.isnot(None),
+            Team.status == 0,
+            or_(
+                Team.user_id == user_id,
+                BindUser.user_id == user_id,
+            ),
+        )
+        .order_by(IMApplication.modified.desc())
+    )
+    if exclude_team_id:
+        query = query.filter(IMApplication.team_id != exclude_team_id)
+    return query.first()
+
+
+def reuse_im_application_for_team(team_id: str, user_id: str):
+    _, current_im_application = get_application_info_by_team_id(team_id)
+    if current_im_application:
+        return current_im_application
+
+    reusable_application = _get_latest_available_im_application_by_user_id(
+        user_id=user_id, exclude_team_id=team_id
+    )
+    if not reusable_application:
+        return None
+
+    extra = reusable_application.extra if isinstance(reusable_application.extra, dict) else {}
+    save_im_application(
+        team_id=team_id,
+        platform=reusable_application.platform or "lark",
+        app_id=reusable_application.app_id,
+        app_secret=reusable_application.app_secret,
+        encrypt_key=extra.get("encrypt_key", ""),
+        verification_token=extra.get("verification_token", ""),
+    )
+
+    _, current_im_application = get_application_info_by_team_id(team_id)
+    return current_im_application
+
+
 def get_team_member(team_id, user_id, page=1, size=20):
     query = (
         db.session.query(TeamMemberWithUser)

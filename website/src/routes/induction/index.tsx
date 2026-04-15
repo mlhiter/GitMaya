@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { HeaderContent } from '@/layout/app';
 import { useTeamInfoStore } from '@/stores';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 type StepComponentType = React.FC<{
   step: number;
@@ -17,14 +18,22 @@ const stepComponents: Record<number, StepComponentType> = {
 
 const Induction = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const teamInfo = useTeamInfoStore.use.teamInfo();
   const [step, setStep] = useState(0);
   const StepComponent = stepComponents[step];
+
   useEffect(() => {
+    if (teamInfo?.code_application && teamInfo?.im_application) {
+      navigate('/app/people', { replace: true });
+      return;
+    }
     if (teamInfo?.code_application && !teamInfo.im_application) {
       setStep(1);
+      return;
     }
-  }, [teamInfo?.code_application, teamInfo?.im_application]);
+    setStep(0);
+  }, [navigate, teamInfo?.code_application, teamInfo?.im_application]);
 
   return (
     <div className="flex-grow flex flex-col">
