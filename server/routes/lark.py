@@ -72,6 +72,9 @@ def _extract_leading_mention_and_rest(text):
     parts = candidate.split(None, 1)
     first = parts[0] if parts else ""
     rest = parts[1].lstrip() if len(parts) > 1 else ""
+    if first.startswith("@_user"):
+        # Feishu 文本消息里常见的 mention 占位符（对应 message.mentions[].key）
+        return first, "", rest
     if first.startswith("@") and len(first) > 1:
         return "", first[1:], rest
     if first.startswith("ou_") or first.startswith("on_"):
