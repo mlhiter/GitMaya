@@ -9,6 +9,7 @@ import {
   TableCell,
   User,
   Spinner,
+  Pagination,
   Autocomplete,
   AutocompleteItem,
 } from '@nextui-org/react';
@@ -34,6 +35,7 @@ const People = () => {
   const { t } = useTranslation();
   const githubControls = useAnimation();
   const larkControls = useAnimation();
+  const [page, setPage] = useState(1);
   const [githubTaskId, setGithubTaskId] = useState<string>('');
   const [larkTaskId, setLarkTaskId] = useState<string>('');
   const [githubRefreshInterval, setGithubRefreshInterval] = useState(0);
@@ -41,6 +43,7 @@ const People = () => {
   const account = useAccountStore.use.account();
 
   const team_id = account?.current_team as string;
+  const size = 20;
 
   const columns = [
     {
@@ -78,8 +81,9 @@ const People = () => {
     () => refreshGithubMembers(team_id),
   );
 
-  const { data, mutate } = useSwr(team_id ? `/api/team/${team_id}/member` : null, () =>
-    getTeamMember(team_id),
+  const { data, mutate } = useSwr(
+    team_id ? `/api/team/${team_id}/member?page=${page}&size=${size}` : null,
+    () => getTeamMember(team_id, { page, size }),
   );
 
   const { data: githubTaskStatusData } = useSwr(
@@ -111,6 +115,9 @@ const People = () => {
 
   const larkUsers = useMemo(() => larkUserData?.data, [larkUserData]);
   const teamMember = useMemo(() => data?.data || [], [data]);
+  const total = useMemo(() => {
+    return data?.total ? Math.ceil(data.total / size) : 0;
+  }, [data?.total, size]);
 
   const bindMember = useCallback(
     async (value: string, user: Github.TeamMember) => {
@@ -197,6 +204,10 @@ const People = () => {
   }, [triggerLarkUser]);
 
   useEffect(() => {
+    setPage(1);
+  }, [team_id]);
+
+  useEffect(() => {
     if (githubTaskStatus === 'PENDING') {
       githubControls.start({
         rotate: 360,
@@ -275,7 +286,23 @@ const People = () => {
           {isLoading ? (
             <Spinner label="Loading..." color="warning" className="absolute inset-0" />
           ) : (
-            <Table>
+            <Table
+              bottomContent={
+                total > 1 ? (
+                  <div className="flex w-full justify-center">
+                    <Pagination
+                      isCompact
+                      showControls
+                      showShadow
+                      color="default"
+                      page={page}
+                      total={total}
+                      onChange={(page) => setPage(page)}
+                    />
+                  </div>
+                ) : null
+              }
+            >
               <TableHeader>
                 {columns.map((column) => (
                   <TableColumn key={column.uid} align="start">

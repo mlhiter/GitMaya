@@ -9,8 +9,13 @@ export const getTeams = () => request.get<Github.Team[]>('/api/team/');
 export const getTeamInfo = (team_id: string) =>
   request.get<Github.TeamInfo>(`/api/team/${team_id}`);
 
-export const getTeamMember = (team_id: string) =>
-  request.get<Github.TeamMember[]>(`/api/team/${team_id}/member`);
+export const getTeamMember = (
+  team_id: string,
+  params?: {
+    page: number;
+    size: number;
+  },
+) => request.get<Github.TeamMember[]>(`/api/team/${team_id}/member`, { params });
 
 export const bindTeamMember = (
   team_id: string,
