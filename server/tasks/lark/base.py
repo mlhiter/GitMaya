@@ -5,7 +5,17 @@ from functools import wraps
 from urllib.parse import urlencode
 
 from connectai.lark.sdk import Bot
-from model.schema import ChatGroup, IMApplication, Issue, ObjID, PullRequest, Repo, db
+from model.schema import (
+    ChatGroup,
+    CodeApplication,
+    IMApplication,
+    Issue,
+    ObjID,
+    PullRequest,
+    Repo,
+    Team,
+    db,
+)
 from sqlalchemy import or_
 from utils.constant import GitHubPermissionError
 from utils.redis import RedisStorage
@@ -16,26 +26,31 @@ _MISSING_GITHUB_AUTH_ERRORS = {
 }
 
 
+def get_scoped_im_application_ids(app_id):
+    return [
+        item
+        for item, in db.session.query(IMApplication.id)
+        .filter(
+            or_(
+                IMApplication.app_id == app_id,
+                IMApplication.id == app_id,
+            ),
+            IMApplication.status.in_([0, 1]),
+        )
+        .all()
+    ]
+
+
 def get_chat_group_by_chat_id(chat_id, app_id=None):
     query = db.session.query(ChatGroup).filter(
         ChatGroup.chat_id == chat_id,
         ChatGroup.status == 0,
     )
     if app_id:
-        im_application_id = (
-            db.session.query(IMApplication.id)
-            .filter(
-                or_(
-                    IMApplication.app_id == app_id,
-                    IMApplication.id == app_id,
-                ),
-                IMApplication.status.in_([0, 1]),
-            )
-            .limit(1)
-            .scalar()
-        )
-        if im_application_id:
-            query = query.filter(ChatGroup.im_application_id == im_application_id)
+        im_application_ids = get_scoped_im_application_ids(app_id)
+        if not im_application_ids:
+            return None
+        query = query.filter(ChatGroup.im_application_id.in_(im_application_ids))
 
     return query.order_by(ChatGroup.modified.desc()).first()
 
@@ -55,6 +70,31 @@ def get_repo_by_repo_id(repo_id):
         .first()
     )
     return repo
+
+
+def get_team_by_repo(repo):
+    if not repo:
+        return None
+
+    code_application = (
+        db.session.query(CodeApplication)
+        .filter(
+            CodeApplication.id == repo.application_id,
+            CodeApplication.status.in_([0, 1]),
+        )
+        .first()
+    )
+    if not code_application:
+        return None
+
+    return (
+        db.session.query(Team)
+        .filter(
+            Team.id == code_application.team_id,
+            Team.status == 0,
+        )
+        .first()
+    )
 
 
 def build_github_oauth_url(host, app_id=None, open_id=None):
@@ -119,8 +159,10 @@ def get_bot_by_application_id(app_id):
             or_(
                 IMApplication.app_id == app_id,
                 IMApplication.id == app_id,
-            )
+            ),
+            IMApplication.status.in_([0, 1]),
         )
+        .order_by(IMApplication.modified.desc())
         .first()
     )
     if application:

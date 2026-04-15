@@ -1,5 +1,6 @@
 import logging
 import os
+from urllib.parse import urlparse
 
 from celery_app import app, celery
 from connectai.lark.sdk import FeishuShareChatMessage, FeishuTextMessage
@@ -27,7 +28,12 @@ from utils.lark.manage_success import ManageSuccess
 from utils.lark.repo_info import RepoInfo
 from utils.lark.repo_manual import RepoManual
 
-from .base import build_github_oauth_url, get_bot_by_application_id
+from .base import (
+    build_github_oauth_url,
+    get_bot_by_application_id,
+    get_scoped_im_application_ids,
+    get_team_by_repo,
+)
 
 
 def _get_chat_meta(bot, chat_id):
@@ -126,6 +132,29 @@ def _is_chat_owner_or_manager(bot, chat_id, open_id):
         logging.error(e)
 
     return False
+
+
+def _parse_repo_identity(repo_url: str):
+    value = (repo_url or "").strip()
+    if not value:
+        return "", ""
+
+    candidate = value if "://" in value else f"https://{value.lstrip('/')}"
+    parsed = urlparse(candidate)
+    path = (parsed.path or "").strip("/")
+    parts = [part for part in path.split("/") if part]
+
+    if len(parts) >= 2:
+        org_name, repo_name = parts[0], parts[1]
+    elif len(parts) == 1:
+        org_name, repo_name = "", parts[0]
+    else:
+        org_name, repo_name = "", value.rstrip("/").split("/").pop()
+
+    if repo_name.endswith(".git"):
+        repo_name = repo_name[:-4]
+
+    return org_name, repo_name
 
 
 @celery.task()
@@ -415,40 +444,94 @@ def create_chat_group_for_repo(
         message_id: lark message id.
     """
     bot, application = get_bot_by_application_id(app_id)
-    if not application:
+    if not bot or not application:
         return send_manage_fail_message(
             "找不到对应的应用", app_id, message_id, *args, bot=bot, **kwargs
         )
-    team = (
-        db.session.query(Team)
-        .filter(
-            Team.id == application.team_id,
-        )
-        .first()
-    )
-    if not team:
+
+    app_scope_ids = get_scoped_im_application_ids(application.app_id)
+    if not app_scope_ids:
+        app_scope_ids = [application.id]
+
+    org_name, repo_name = _parse_repo_identity(repo_url)
+    if not repo_name:
         return send_manage_fail_message(
-            "找不到对应的项目", app_id, message_id, *args, bot=bot, **kwargs
+            "仓库地址不合法。请使用 /match https://github.com/<org>/<repo>",
+            app_id,
+            message_id,
+            *args,
+            bot=bot,
+            **kwargs,
         )
 
-    # TODO
-    repo_name = (repo_url or "").rstrip("/").split("/").pop()
-    repo = (
-        db.session.query(Repo)
+    repo_candidates = (
+        db.session.query(Repo, Team)
         .join(
             CodeApplication,
             Repo.application_id == CodeApplication.id,
         )
-        .filter(
-            CodeApplication.team_id == team.id,
-            Repo.name == repo_name,
+        .join(
+            Team,
+            Team.id == CodeApplication.team_id,
         )
-        .first()
+        .join(
+            IMApplication,
+            IMApplication.team_id == Team.id,
+        )
+        .filter(
+            IMApplication.id.in_(app_scope_ids),
+            IMApplication.status.in_([0, 1]),
+            Repo.name == repo_name,
+            Repo.status == 0,
+            Team.status == 0,
+            CodeApplication.status.in_([0, 1]),
+        )
     )
-    if not repo:
+    if org_name:
+        repo_candidates = repo_candidates.filter(Team.name == org_name)
+
+    repo_candidates = repo_candidates.distinct().all()
+    if not repo_candidates:
         return send_manage_fail_message(
             "找不到对应的项目", app_id, message_id, *args, bot=bot, **kwargs
         )
+    if len(repo_candidates) > 1 and not org_name:
+        return send_manage_fail_message(
+            "匹配到多个组织的同名仓库，请使用完整仓库地址（含组织名）",
+            app_id,
+            message_id,
+            *args,
+            bot=bot,
+            **kwargs,
+        )
+    repo, team = repo_candidates[0]
+
+    bind_application = (
+        db.session.query(IMApplication)
+        .filter(
+            IMApplication.team_id == team.id,
+            IMApplication.app_id == application.app_id,
+            IMApplication.status.in_([0, 1]),
+        )
+        .order_by(IMApplication.modified.desc())
+        .first()
+    )
+    if not bind_application and application.team_id == team.id:
+        bind_application = application
+    if not bind_application:
+        return send_manage_fail_message(
+            "当前机器人在该组织下未安装，请先在该组织完成机器人安装",
+            app_id,
+            message_id,
+            *args,
+            bot=bot,
+            **kwargs,
+        )
+
+    # 同一机器人（同 app_id）在当前群范围内的群绑定，用于 replace/unmatch 作用域控制
+    current_app_scope_ids = get_scoped_im_application_ids(bind_application.app_id)
+    if not current_app_scope_ids:
+        current_app_scope_ids = [bind_application.id]
 
     raw_message = args[1] if len(args) > 1 and isinstance(args[1], dict) else {}
     event = raw_message.get("event", {})
@@ -483,7 +566,7 @@ def create_chat_group_for_repo(
         current_chat_group = (
             db.session.query(ChatGroup)
             .filter(
-                ChatGroup.im_application_id == application.id,
+                ChatGroup.im_application_id == bind_application.id,
                 ChatGroup.chat_id == chat_id,
                 ChatGroup.status == 0,
             )
@@ -493,7 +576,7 @@ def create_chat_group_for_repo(
             current_chat_name, current_chat_desc, chat_extra = _get_chat_meta(bot, chat_id)
             current_chat_group = ChatGroup(
                 id=ObjID.new_id(),
-                im_application_id=application.id,
+                im_application_id=bind_application.id,
                 chat_id=chat_id,
                 name=current_chat_name or "项目群",
                 description=current_chat_desc or "",
@@ -510,6 +593,7 @@ def create_chat_group_for_repo(
                 .filter(
                     ChatGroup.chat_id == chat_id,
                     ChatGroup.status == 0,
+                    ChatGroup.im_application_id.in_(current_app_scope_ids),
                 )
                 .all()
             ]
@@ -533,7 +617,7 @@ def create_chat_group_for_repo(
         if should_commit:
             db.session.commit()
 
-        bind_result = send_repo_to_chat_group(repo.id, app_id, chat_id)
+        bind_result = send_repo_to_chat_group(repo.id, bind_application.id, chat_id)
         if not isinstance(bind_result, list):
             bind_result = [bind_result]
 
@@ -613,7 +697,7 @@ def create_chat_group_for_repo(
     exists_chat_group = (
         db.session.query(ChatGroup)
         .filter(
-            ChatGroup.im_application_id == application.id,
+            ChatGroup.im_application_id == bind_application.id,
             or_(
                 ChatGroup.name == chat_name if chat_name else False,
                 # 现在支持在群聊里面使用match，尝试从chat_id获取名字
@@ -647,7 +731,7 @@ def create_chat_group_for_repo(
             ]
         )
         # 这里可以再触发一个异步任务给群发卡片，不过为了保存结果，就同步调用
-        result = send_repo_to_chat_group(repo.id, app_id, chat_id) + [
+        result = send_repo_to_chat_group(repo.id, bind_application.id, chat_id) + [
             send_manage_success_message(
                 content, app_id, message_id, *args, bot=bot, **kwargs
             )
@@ -692,7 +776,7 @@ def create_chat_group_for_repo(
     chat_group_id = ObjID.new_id()
     chat_group = ChatGroup(
         id=chat_group_id,
-        im_application_id=application.id,
+        im_application_id=bind_application.id,
         chat_id=chat_id,
         name=name,
         description=description,
@@ -723,7 +807,7 @@ def create_chat_group_for_repo(
         ]
     )
     # 这里可以再触发一个异步任务给群发卡片，不过为了保存结果，就同步调用
-    result = send_repo_to_chat_group(repo.id, app_id, chat_id) + [
+    result = send_repo_to_chat_group(repo.id, bind_application.id, chat_id) + [
         send_manage_success_message(
             content, app_id, message_id, *args, bot=bot, **kwargs
         )
@@ -746,6 +830,10 @@ def unmatch_chat_group_repo(app_id, message_id, data, raw_message, *args, **kwar
             bot=bot,
             **kwargs,
         )
+
+    app_scope_ids = get_scoped_im_application_ids(application.app_id)
+    if not app_scope_ids:
+        app_scope_ids = [application.id]
 
     event = raw_message.get("event", {}) if isinstance(raw_message, dict) else {}
     event_message = event.get("message", {}) if isinstance(event, dict) else {}
@@ -796,6 +884,7 @@ def unmatch_chat_group_repo(app_id, message_id, data, raw_message, *args, **kwar
         .filter(
             ChatGroup.chat_id == chat_id,
             ChatGroup.status == 0,
+            ChatGroup.im_application_id.in_(app_scope_ids),
         )
         .all()
     ]
@@ -861,14 +950,10 @@ def send_repo_to_chat_group(repo_id, app_id, chat_id=""):
         .first()
     )
     if repo:
-        bot, application = get_bot_by_application_id(app_id)
-        team = (
-            db.session.query(Team)
-            .filter(
-                Team.id == application.team_id,
-            )
-            .first()
-        )
+        bot, _ = get_bot_by_application_id(app_id)
+        team = get_team_by_repo(repo)
+        if not bot or not team:
+            return False
         repo_url = f"https://github.com/{team.name}/{repo.name}"
         message = RepoInfo(
             repo_url=repo_url,

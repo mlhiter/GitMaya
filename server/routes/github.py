@@ -73,15 +73,16 @@ def _bind_lark_user_to_team_member(app_id: str, open_id: str, user_id: str) -> b
     if not app_id or not open_id or not user_id:
         return False
 
-    application = (
+    applications = (
         db.session.query(IMApplication)
         .filter(
             IMApplication.app_id == app_id,
             IMApplication.status.in_([0, 1]),
         )
-        .first()
+        .order_by(IMApplication.modified.desc())
+        .all()
     )
-    if not application:
+    if not applications:
         app.logger.warning(
             "Skip team_member auto-bind, IMApplication not found: app_id=%s", app_id
         )
@@ -102,15 +103,29 @@ def _bind_lark_user_to_team_member(app_id: str, open_id: str, user_id: str) -> b
         )
         return False
 
+    application_ids = [item.id for item in applications]
     im_bind_user = (
         db.session.query(BindUser)
         .filter(
             BindUser.openid == open_id,
             BindUser.platform == "lark",
+            BindUser.application_id.in_(application_ids),
             BindUser.status == 0,
         )
+        .order_by(BindUser.modified.desc())
         .first()
     )
+    if not im_bind_user:
+        im_bind_user = (
+            db.session.query(BindUser)
+            .filter(
+                BindUser.openid == open_id,
+                BindUser.platform == "lark",
+                BindUser.status == 0,
+            )
+            .order_by(BindUser.modified.desc())
+            .first()
+        )
 
     # Ensure an IM bind user exists even when contact sync was not executed yet.
     if not im_bind_user:
@@ -118,7 +133,7 @@ def _bind_lark_user_to_team_member(app_id: str, open_id: str, user_id: str) -> b
             id=ObjID.new_id(),
             user_id=user_id,
             platform="lark",
-            application_id=application.id,
+            application_id=applications[0].id,
             openid=open_id,
             name=open_id,
             extra={"source": "oauth_auto_bind"},
@@ -126,50 +141,64 @@ def _bind_lark_user_to_team_member(app_id: str, open_id: str, user_id: str) -> b
         db.session.add(im_bind_user)
         db.session.flush()
     elif not im_bind_user.application_id:
-        im_bind_user.application_id = application.id
+        im_bind_user.application_id = applications[0].id
 
     try:
-        team_member = (
-            db.session.query(TeamMember)
-            .filter(
-                TeamMember.team_id == application.team_id,
-                TeamMember.code_user_id == github_bind_user.id,
-                TeamMember.status == 0,
-            )
-            .first()
-        )
+        is_multi_team = len(applications) > 1
+        has_binding = False
 
-        duplicate_im_binding = (
-            db.session.query(TeamMember.id)
-            .filter(
-                TeamMember.team_id == application.team_id,
-                TeamMember.im_user_id == im_bind_user.id,
-                TeamMember.status == 0,
-            )
-            .limit(1)
-            .scalar()
-        )
-
-        if team_member:
-            if duplicate_im_binding and duplicate_im_binding != team_member.id:
-                app.logger.warning(
-                    "Skip team_member auto-bind, im_user already bound to another member: team_id=%s open_id=%s",
-                    application.team_id,
-                    open_id,
+        for application in applications:
+            team_member = (
+                db.session.query(TeamMember)
+                .filter(
+                    TeamMember.team_id == application.team_id,
+                    TeamMember.code_user_id == github_bind_user.id,
+                    TeamMember.status == 0,
                 )
-                db.session.rollback()
-                return False
-            if team_member.im_user_id != im_bind_user.id:
-                team_member.im_user_id = im_bind_user.id
-        else:
+                .first()
+            )
+
+            duplicate_im_binding = (
+                db.session.query(TeamMember.id)
+                .filter(
+                    TeamMember.team_id == application.team_id,
+                    TeamMember.im_user_id == im_bind_user.id,
+                    TeamMember.status == 0,
+                )
+                .limit(1)
+                .scalar()
+            )
+
+            if team_member:
+                if duplicate_im_binding and duplicate_im_binding != team_member.id:
+                    app.logger.warning(
+                        "Skip team_member auto-bind, im_user already bound to another member: team_id=%s open_id=%s",
+                        application.team_id,
+                        open_id,
+                    )
+                    continue
+                if team_member.im_user_id != im_bind_user.id:
+                    team_member.im_user_id = im_bind_user.id
+                has_binding = True
+                continue
+
+            # 单 team 场景保持历史行为：可自动补一条 team_member。
+            if is_multi_team:
+                app.logger.info(
+                    "Skip creating team_member in multi-team mode: team_id=%s user_id=%s",
+                    application.team_id,
+                    github_bind_user.id,
+                )
+                continue
+
             if duplicate_im_binding:
                 app.logger.warning(
                     "Skip team_member auto-bind, im_user already bound: team_id=%s open_id=%s",
                     application.team_id,
                     open_id,
                 )
-                db.session.rollback()
-                return False
+                continue
+
             db.session.add(
                 TeamMember(
                     id=ObjID.new_id(),
@@ -178,13 +207,14 @@ def _bind_lark_user_to_team_member(app_id: str, open_id: str, user_id: str) -> b
                     im_user_id=im_bind_user.id,
                 )
             )
+            has_binding = True
 
         db.session.commit()
     except Exception:
         db.session.rollback()
         raise
 
-    return True
+    return has_binding
 
 
 @bp.route("/install", methods=["GET"])

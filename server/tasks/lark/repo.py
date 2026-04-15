@@ -91,13 +91,15 @@ def _get_github_app(app_id, message_id, content, data):
 
     logging.info(f"chat_id: {chat_id}")
 
-    chat_group = get_chat_group_by_chat_id(chat_id)
+    chat_group = get_chat_group_by_chat_id(chat_id, app_id=app_id)
     logging.info(f"chat_group: {chat_group}")
+    if not chat_group:
+        return send_repo_failed_tip("找不到项目群", app_id, message_id, content, data)
 
     repo = (
         db.session.query(Repo)
         .filter(
-            Repo.id == chat_group.repo_id,
+            Repo.chat_group_id == chat_group.id,
             Repo.status == 0,
         )
         .first()
@@ -185,19 +187,13 @@ def send_repo_url_message(
         return send_repo_failed_tip(
             "找不到Repo", app_id, message_id, content, data, *args, **kwargs
         )
-    bot, application = get_bot_by_application_id(app_id)
-    if not application:
+    bot, _ = get_bot_by_application_id(app_id)
+    if not bot:
         return send_repo_failed_tip(
             "找不到对应的应用", app_id, message_id, content, data, *args, bot=bot, **kwargs
         )
 
-    team = (
-        db.session.query(Team)
-        .filter(
-            Team.id == application.team_id,
-        )
-        .first()
-    )
+    team = get_team_by_repo(repo)
     if not team:
         return send_repo_failed_tip(
             "找不到对应的项目", app_id, message_id, content, data, *args, bot=bot, **kwargs

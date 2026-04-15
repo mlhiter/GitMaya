@@ -36,6 +36,7 @@ from utils.lark.pr_tip_success import PrTipSuccess
 from .base import (
     get_bot_by_application_id,
     get_git_object_by_message_id,
+    get_team_by_repo,
     with_authenticated_github,
 )
 
@@ -173,8 +174,8 @@ def send_pull_request_manual(app_id, message_id, content, data, *args, **kwargs)
         return send_pull_request_failed_tip(
             "找不到项目", app_id, message_id, content, data, *args, **kwargs
         )
-    bot, application = get_bot_by_application_id(app_id)
-    if not application:
+    bot, _ = get_bot_by_application_id(app_id)
+    if not bot:
         return send_pull_request_failed_tip(
             "找不到对应的应用",
             app_id,
@@ -186,13 +187,7 @@ def send_pull_request_manual(app_id, message_id, content, data, *args, **kwargs)
             **kwargs,
         )
 
-    team = (
-        db.session.query(Team)
-        .filter(
-            Team.id == application.team_id,
-        )
-        .first()
-    )
+    team = get_team_by_repo(repo)
     if not team:
         return send_pull_request_failed_tip(
             "找不到对应的项目",
@@ -233,8 +228,8 @@ def send_pull_request_url_message(
         return send_pull_request_failed_tip(
             "找不到项目", app_id, message_id, content, data, *args, **kwargs
         )
-    bot, application = get_bot_by_application_id(app_id)
-    if not application:
+    bot, _ = get_bot_by_application_id(app_id)
+    if not bot:
         return send_pull_request_failed_tip(
             "找不到对应的应用",
             app_id,
@@ -246,13 +241,7 @@ def send_pull_request_url_message(
             **kwargs,
         )
 
-    team = (
-        db.session.query(Team)
-        .filter(
-            Team.id == application.team_id,
-        )
-        .first()
-    )
+    team = get_team_by_repo(repo)
     if not team:
         return send_pull_request_failed_tip(
             "找不到对应的项目",

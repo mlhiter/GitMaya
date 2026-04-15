@@ -28,6 +28,7 @@ from .base import (
     get_bot_by_application_id,
     get_chat_group_by_chat_id,
     get_git_object_by_message_id,
+    get_team_by_repo,
     with_authenticated_github,
 )
 
@@ -73,8 +74,8 @@ def send_chat_manual(app_id, message_id, content, data, *args, **kwargs):
         return send_chat_failed_tip(
             "找不到项目群", app_id, message_id, content, data, *args, **kwargs
         )
-    bot, application = get_bot_by_application_id(app_id)
-    if not application:
+    bot, _ = get_bot_by_application_id(app_id)
+    if not bot:
         return send_chat_failed_tip(
             "找不到对应的应用",
             app_id,
@@ -86,13 +87,7 @@ def send_chat_manual(app_id, message_id, content, data, *args, **kwargs):
             **kwargs,
         )
 
-    team = (
-        db.session.query(Team)
-        .filter(
-            Team.id == application.team_id,
-        )
-        .first()
-    )
+    team = get_team_by_repo(repo)
     if not team:
         return send_chat_failed_tip(
             "找不到对应的项目",
@@ -157,9 +152,9 @@ def send_chat_url_message(
             *args,
             **kwargs,
         )
-    repo_name = repos[0].name
-    bot, application = get_bot_by_application_id(app_id)
-    if not application:
+    repo = repos[0]
+    bot, _ = get_bot_by_application_id(app_id)
+    if not bot:
         return send_chat_failed_tip(
             "找不到对应的应用",
             app_id,
@@ -171,13 +166,7 @@ def send_chat_url_message(
             **kwargs,
         )
 
-    team = (
-        db.session.query(Team)
-        .filter(
-            Team.id == application.team_id,
-        )
-        .first()
-    )
+    team = get_team_by_repo(repo)
     if not team:
         return send_chat_failed_tip(
             "找不到对应的项目",
@@ -190,7 +179,7 @@ def send_chat_url_message(
             **kwargs,
         )
 
-    repo_url = f"https://github.com/{team.name}/{repo_name}"
+    repo_url = f"https://github.com/{team.name}/{repo.name}"
     if "view" == typ:
         message = ChatView(repo_url=repo_url)
     elif "insight" == typ:

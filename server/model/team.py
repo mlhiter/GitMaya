@@ -230,6 +230,20 @@ def _format_repo_user(item):
 
 
 def get_im_user_by_team_id(team_id, page=1, size=20):
+    app_ids = [
+        app_id
+        for app_id, in db.session.query(IMApplication.app_id)
+        .filter(
+            IMApplication.team_id == team_id,
+            IMApplication.status.in_([0, 1]),
+        )
+        .distinct()
+        .all()
+        if app_id
+    ]
+    if not app_ids:
+        return [], 0
+
     query = (
         db.session.query(BindUser)
         .join(
@@ -237,7 +251,7 @@ def get_im_user_by_team_id(team_id, page=1, size=20):
             IMApplication.id == BindUser.application_id,
         )
         .filter(
-            IMApplication.team_id == team_id,
+            IMApplication.app_id.in_(app_ids),
             IMApplication.status.in_([0, 1]),
             BindUser.status == 0,
         )
@@ -401,32 +415,28 @@ def create_code_application(team_id: str, installation_id: str) -> CodeApplicati
 def save_im_application(
     team_id, platform, app_id, app_secret, encrypt_key, verification_token
 ):
-    if (
-        db.session.query(IMApplication.id)
+    application = (
+        db.session.query(IMApplication)
         .filter(
             IMApplication.team_id == team_id,
+            IMApplication.app_id == app_id,
             IMApplication.status.in_([0, 1]),
         )
-        .limit(1)
-        .scalar()
-    ):
-        logging.warning("already bind im_application for team")
-        # return abort(400, "already bind im_application for team")
-    application = (
-        db.session.query(IMApplication).filter(IMApplication.app_id == app_id).first()
+        .order_by(IMApplication.modified.desc())
+        .first()
     )
     if not application:
-        application = IMApplication(
-            id=ObjID.new_id(),
-            platform=platform,
-            team_id=team_id,
-            app_id=app_id,
-            app_secret=app_secret,
-            extra=dict(encrypt_key=encrypt_key, verification_token=verification_token),
+        application = (
+            db.session.query(IMApplication)
+            .filter(
+                IMApplication.team_id == team_id,
+                IMApplication.status.in_([0, 1]),
+            )
+            .order_by(IMApplication.modified.desc())
+            .first()
         )
-        db.session.add(application)
-        db.session.commit()
-    else:
+    if application:
+        logging.warning("already bind im_application for team, update existing record")
         db.session.query(IMApplication).filter(
             IMApplication.id == application.id,
         ).update(
@@ -441,6 +451,19 @@ def save_im_application(
             )
         )
         db.session.commit()
+        return
+
+    # 允许多个 team 绑定同一个 app_id（同一机器人服务多个组织）
+    application = IMApplication(
+        id=ObjID.new_id(),
+        platform=platform,
+        team_id=team_id,
+        app_id=app_id,
+        app_secret=app_secret,
+        extra=dict(encrypt_key=encrypt_key, verification_token=verification_token),
+    )
+    db.session.add(application)
+    db.session.commit()
 
 
 def create_repo_chat_group_by_repo_id(user_id, team_id, repo_id, chat_name=None):
@@ -466,21 +489,23 @@ def create_repo_chat_group_by_repo_id(user_id, team_id, repo_id, chat_name=None)
     if chat_group:
         return abort(400, "chat_group exists")
 
-    app_id = (
-        db.session.query(IMApplication.app_id)
+    im_application = (
+        db.session.query(IMApplication)
         .filter(
             IMApplication.team_id == team.id,
             IMApplication.status.in_([0, 1]),
         )
-        .limit(1)
-        .scalar()
+        .order_by(IMApplication.modified.desc())
+        .first()
     )
-    if not app_id:
+    if not im_application:
         return abort(404, "im_application not exists")
 
     import tasks
 
-    bot, application = tasks.get_bot_by_application_id(app_id)
+    bot, application = tasks.get_bot_by_application_id(im_application.id)
+    if not bot or not application:
+        return abort(404, "im_application not exists")
     chat_group_url = f"{bot.host}/open-apis/im/v1/chats?uuid={repo.id}"
     owner_id = (
         db.session.query(IMUser.openid)
@@ -547,7 +572,7 @@ def create_repo_chat_group_by_repo_id(user_id, team_id, repo_id, chat_name=None)
     ).update(dict(chat_group_id=chat_group_id))
     db.session.commit()
     # send card message, and pin repo card
-    tasks.send_repo_to_chat_group.delay(repo.id, app_id, chat_id)
+    tasks.send_repo_to_chat_group.delay(repo.id, im_application.id, chat_id)
     return chat_id
 
 def get_code_users_by_openid(users, team_id=None):
