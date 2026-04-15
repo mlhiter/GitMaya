@@ -58,6 +58,22 @@ class GitMayaLarkParser(object):
                 command = parts[1].lstrip() if len(parts) > 1 else ""
                 continue
             break
+
+        # 兼容用户将参数直接贴在命令后面（如 `/issue标题`、`/matchhttps://...`）
+        # 自动补一个空格，避免被 argparse 识别成未知子命令并静默降级为评论。
+        slash_commands = sorted(
+            [item for item in self.command_list if item.startswith("/")],
+            key=len,
+            reverse=True,
+        )
+        for sub_command in slash_commands:
+            if command.startswith(sub_command) and len(command) > len(sub_command):
+                next_char = command[len(sub_command)]
+                if not next_char.isspace():
+                    command = (
+                        f"{sub_command} {command[len(sub_command):].lstrip()}"
+                    ).rstrip()
+                break
         return command
 
     def init_subparsers(self):
