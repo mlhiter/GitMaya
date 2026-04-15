@@ -309,6 +309,117 @@ def add_team_member(team_id, code_user_id):
     db.session.commit()
 
 
+def _get_github_bind_user_by_unionid(github_user_id: str | int | None):
+    if not github_user_id:
+        return None
+
+    return (
+        db.session.query(BindUser)
+        .join(
+            User,
+            User.id == BindUser.user_id,
+        )
+        .filter(
+            User.unionid == str(github_user_id),
+            User.status == 0,
+            BindUser.platform == "github",
+            BindUser.status == 0,
+        )
+        .first()
+    )
+
+
+def upsert_team_and_code_application_by_installation(
+    app_info: dict,
+    installation_id: str,
+    installer_github_user_id: str | int | None = None,
+):
+    """Upsert team and code_application by GitHub installation payload.
+
+    This path is used by webhook flow where there is no browser session.
+    """
+
+    account = (app_info or {}).get("account") or {}
+    account_id = account.get("id")
+    account_login = account.get("login")
+    if account_id is None or not account_login:
+        raise ValueError("invalid installation account payload")
+
+    installation_id = str(installation_id)
+    account_id = str(account_id)
+
+    bind_user = _get_github_bind_user_by_unionid(installer_github_user_id)
+    owner_user_id = bind_user.user_id if bind_user else None
+
+    team = (
+        db.session.query(Team)
+        .filter(
+            Team.platform_id == account_id,
+            Team.status == 0,
+        )
+        .first()
+    )
+    if team:
+        team.name = account_login
+        team.extra = account
+        if not team.user_id and owner_user_id:
+            team.user_id = owner_user_id
+    else:
+        team = Team(
+            id=ObjID.new_id(),
+            user_id=owner_user_id,
+            name=account_login,
+            description=None,
+            platform_id=account_id,
+            extra=account,
+        )
+        db.session.add(team)
+        db.session.flush()
+
+    code_application = (
+        db.session.query(CodeApplication)
+        .filter(
+            CodeApplication.team_id == team.id,
+            CodeApplication.status.in_([0, 1]),
+        )
+        .first()
+    )
+    if code_application:
+        code_application.installation_id = installation_id
+        code_application.platform = "github"
+    else:
+        code_application = CodeApplication(
+            id=ObjID.new_id(),
+            team_id=team.id,
+            installation_id=installation_id,
+            platform="github",
+        )
+        db.session.add(code_application)
+
+    if bind_user:
+        team_member = (
+            db.session.query(TeamMember)
+            .filter(
+                TeamMember.team_id == team.id,
+                TeamMember.code_user_id == bind_user.id,
+                TeamMember.status == 0,
+            )
+            .first()
+        )
+        if not team_member:
+            db.session.add(
+                TeamMember(
+                    id=ObjID.new_id(),
+                    team_id=team.id,
+                    code_user_id=bind_user.id,
+                    im_user_id=None,
+                )
+            )
+
+    db.session.commit()
+    return team, code_application
+
+
 def create_team(app_info: dict) -> Team:
     """Create a team.
 

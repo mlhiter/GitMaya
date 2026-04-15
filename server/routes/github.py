@@ -9,6 +9,7 @@ from model.team import create_code_application, create_team
 from model.schema import BindUser, IMApplication, ObjID, TeamMember
 from tasks.github import pull_github_repo
 from tasks.github.issue import on_issue, on_issue_comment
+from tasks.github.installation import on_installation, on_installation_repositories
 from tasks.github.organization import on_organization
 from tasks.github.pull_request import on_pull_request
 from tasks.github.push import on_push
@@ -417,6 +418,12 @@ def github_hook():
             return jsonify({"code": 0, "message": "ok", "task_id": task.id})
         case "organization":
             task = on_organization.delay(request.json)
+            return jsonify({"code": 0, "message": "ok", "task_id": task.id})
+        case "installation":
+            task = on_installation.delay(request.json)
+            return jsonify({"code": 0, "message": "ok", "task_id": task.id})
+        case "installation_repositories":
+            task = on_installation_repositories.delay(request.json)
             return jsonify({"code": 0, "message": "ok", "task_id": task.id})
         case "push":
             task = on_push.delay(request.json)
