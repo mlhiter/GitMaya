@@ -183,6 +183,7 @@ def install_im_application_to_team_by_get_method(team_id, platform):
                 "im.message.reaction.deleted_v1",  # 删除消息表情回复
                 "im.message.recalled_v1",  # 撤回消息
                 "im.message.receive_v1",  # 接收消息
+                "im.chat.member.user.added_v1",  # 群成员新增
             ]
             scope_ids = [
                 "8002",  # 获取应用信息

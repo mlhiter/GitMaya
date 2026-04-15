@@ -17,6 +17,11 @@ from tasks.github.repo import on_fork, on_repository, on_star
 from utils.auth import authenticated
 from utils.github.application import verify_github_signature
 from utils.github.bot import BaseGitHubApp
+from utils.oauth_state import (
+    decode_signed_oauth_state,
+    is_signed_oauth_state,
+    issue_signed_oauth_state,
+)
 from utils.user import register
 
 bp = Blueprint("github", __name__, url_prefix="/api/github")
@@ -28,10 +33,26 @@ def _encode_oauth_state(payload: dict) -> str:
 
 
 def _decode_oauth_state(state: str) -> dict:
-    padding = "=" * ((4 - len(state) % 4) % 4)
-    content = urlsafe_b64decode((state + padding).encode("utf-8")).decode("utf-8")
-    payload = json.loads(content)
+    try:
+        padding = "=" * ((4 - len(state) % 4) % 4)
+        content = urlsafe_b64decode((state + padding).encode("utf-8")).decode("utf-8")
+        payload = json.loads(content)
+    except Exception:
+        return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _resolve_oauth_state(state: str, consume_signed_state: bool = False) -> tuple[dict, str | None]:
+    if not state:
+        return {}, None
+    if is_signed_oauth_state(state):
+        payload, error = decode_signed_oauth_state(state, consume=consume_signed_state)
+        return (payload or {}), error
+
+    payload = _decode_oauth_state(state)
+    if not payload:
+        return {}, "invalid_state"
+    return payload, None
 
 
 def _send_lark_oauth_success(
@@ -66,7 +87,12 @@ def _send_lark_oauth_failed(app_id: str, open_id: str, content: str) -> None:
     bot.send(open_id, message, receive_id_type="open_id").json()
 
 
-def _bind_lark_user_to_team_member(app_id: str, open_id: str, user_id: str) -> bool:
+def _bind_lark_user_to_team_member(
+    app_id: str,
+    open_id: str,
+    user_id: str,
+    team_id: str | None = None,
+) -> bool:
     """Bind lark open_id to current github user inside team_member.
 
     This makes assignee mapping available for issue/pr cards and action callbacks.
@@ -74,18 +100,18 @@ def _bind_lark_user_to_team_member(app_id: str, open_id: str, user_id: str) -> b
     if not app_id or not open_id or not user_id:
         return False
 
-    applications = (
-        db.session.query(IMApplication)
-        .filter(
-            IMApplication.app_id == app_id,
-            IMApplication.status.in_([0, 1]),
-        )
-        .order_by(IMApplication.modified.desc())
-        .all()
+    applications_query = db.session.query(IMApplication).filter(
+        IMApplication.app_id == app_id,
+        IMApplication.status.in_([0, 1]),
     )
+    if team_id:
+        applications_query = applications_query.filter(IMApplication.team_id == team_id)
+    applications = applications_query.order_by(IMApplication.modified.desc()).all()
     if not applications:
         app.logger.warning(
-            "Skip team_member auto-bind, IMApplication not found: app_id=%s", app_id
+            "Skip team_member auto-bind, IMApplication not found: app_id=%s team_id=%s",
+            app_id,
+            team_id,
         )
         return False
 
@@ -141,11 +167,11 @@ def _bind_lark_user_to_team_member(app_id: str, open_id: str, user_id: str) -> b
         )
         db.session.add(im_bind_user)
         db.session.flush()
-    elif not im_bind_user.application_id:
+    elif not im_bind_user.application_id or im_bind_user.application_id not in application_ids:
         im_bind_user.application_id = applications[0].id
 
     try:
-        is_multi_team = len(applications) > 1
+        allow_create_team_member = len({application.team_id for application in applications}) == 1
         has_binding = False
 
         for application in applications:
@@ -184,7 +210,7 @@ def _bind_lark_user_to_team_member(app_id: str, open_id: str, user_id: str) -> b
                 continue
 
             # 单 team 场景保持历史行为：可自动补一条 team_member。
-            if is_multi_team:
+            if not allow_create_team_member:
                 app.logger.info(
                     "Skip creating team_member in multi-team mode: team_id=%s user_id=%s",
                     application.team_id,
@@ -306,38 +332,76 @@ def github_register():
     If `code`, register by code.
     """
     code = request.args.get("code", None)
+    state = request.args.get("state")
 
     if code is None:
         params = {"client_id": os.environ.get("GITHUB_CLIENT_ID")}
+        if state:
+            params["state"] = state
+
         app_id = request.args.get("app_id")
         open_id = request.args.get("open_id")
-        if app_id and open_id:
-            params["state"] = _encode_oauth_state(
-                {
-                    "app_id": app_id,
-                    "open_id": open_id,
-                }
-            )
+        team_id = request.args.get("team_id")
+        secure_state = str(request.args.get("secure_state", "")).lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+        if app_id and open_id and not state:
+            if secure_state:
+                signed_state = issue_signed_oauth_state(
+                    {
+                        "app_id": app_id,
+                        "open_id": open_id,
+                        "team_id": team_id,
+                    }
+                )
+                params["state"] = signed_state or _encode_oauth_state(
+                    {
+                        "app_id": app_id,
+                        "open_id": open_id,
+                        "team_id": team_id,
+                    }
+                )
+            else:
+                params["state"] = _encode_oauth_state(
+                    {
+                        "app_id": app_id,
+                        "open_id": open_id,
+                        "team_id": team_id,
+                    }
+                )
         return redirect(
             f"https://github.com/login/oauth/authorize?{urlencode(params)}"
         )
 
+    state_payload, state_error = _resolve_oauth_state(
+        state,
+        consume_signed_state=bool(state),
+    )
+    if state_error:
+        app.logger.warning("OAuth state resolve failed: %s", state_error)
+
     # 通过 code 注册；如果 user 已经存在，则一样会返回 user_id
     user_id = register(code)
-    state = request.args.get("state")
     if user_id:
         # 保存用户注册状态
         session["user_id"] = user_id
         # 默认是会话级别的session，关闭浏览器直接就失效了
         session.permanent = True
 
-        if state:
+        if state_payload:
             try:
-                payload = _decode_oauth_state(state)
-                app_id = payload.get("app_id")
-                open_id = payload.get("open_id")
+                app_id = state_payload.get("app_id")
+                open_id = state_payload.get("open_id")
+                team_id = state_payload.get("team_id")
                 if app_id and open_id:
-                    bind_ok = _bind_lark_user_to_team_member(app_id, open_id, user_id)
+                    bind_ok = _bind_lark_user_to_team_member(
+                        app_id,
+                        open_id,
+                        user_id,
+                        team_id=team_id,
+                    )
                     success_text = (
                         "GitHub 账号绑定成功，并已关联飞书成员。请回到群里继续操作。"
                         if bind_ok
@@ -349,14 +413,24 @@ def github_register():
     elif state:
         # 来自飞书绑定流程，注册失败时给出明确回执，避免用户无感知失败
         try:
-            payload = _decode_oauth_state(state)
-            app_id = payload.get("app_id")
-            open_id = payload.get("open_id")
+            app_id = state_payload.get("app_id")
+            open_id = state_payload.get("open_id")
             if app_id and open_id:
+                failure_text = "GitHub 登录失败或授权码已过期，请在飞书里重新执行 /bind 并重试。"
+                if state_error in {
+                    "state_expired",
+                    "state_used",
+                    "invalid_state_format",
+                    "invalid_signature",
+                    "invalid_payload",
+                    "secret_missing",
+                    "state_storage_error",
+                }:
+                    failure_text = "绑定链接已失效，请在飞书群里重新触发绑定链接。"
                 _send_lark_oauth_failed(
                     app_id,
                     open_id,
-                    "GitHub 登录失败或授权码已过期，请在飞书里重新执行 /bind 并重试。",
+                    failure_text,
                 )
         except Exception as e:
             app.logger.warning(f"Failed to send lark oauth failure message: {e}")

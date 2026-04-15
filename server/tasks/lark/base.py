@@ -18,6 +18,7 @@ from model.schema import (
 )
 from sqlalchemy import or_
 from utils.constant import GitHubPermissionError
+from utils.oauth_state import issue_signed_oauth_state
 from utils.redis import RedisStorage
 
 _MISSING_GITHUB_AUTH_ERRORS = {
@@ -97,10 +98,35 @@ def get_team_by_repo(repo):
     )
 
 
-def build_github_oauth_url(host, app_id=None, open_id=None):
+def build_github_oauth_url(
+    host,
+    app_id=None,
+    open_id=None,
+    team_id: str | None = None,
+    secure_state: bool = False,
+):
+    if not host:
+        return ""
+
     base_url = f"{host}/api/github/oauth"
     if app_id and open_id:
-        return f"{base_url}?{urlencode({'app_id': app_id, 'open_id': open_id})}"
+        if secure_state:
+            state = issue_signed_oauth_state(
+                {
+                    "app_id": app_id,
+                    "open_id": open_id,
+                    "team_id": team_id,
+                }
+            )
+            if state:
+                return f"{base_url}?{urlencode({'state': state})}"
+
+        params = {"app_id": app_id, "open_id": open_id}
+        if team_id:
+            params["team_id"] = team_id
+        if secure_state:
+            params["secure_state"] = "1"
+        return f"{base_url}?{urlencode(params)}"
     return base_url
 
 

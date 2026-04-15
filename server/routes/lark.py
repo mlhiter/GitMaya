@@ -291,6 +291,11 @@ def on_bot_event(bot, event_id, event, message, *args, **kwargs):
     parser.on_welcome(bot.app_id, event_id, event, message, **kwargs)
 
 
+@hook.on_bot_event(event_type="im.chat.member.user.added_v1")
+def on_chat_member_user_added_event(bot, event_id, event, message, *args, **kwargs):
+    parser.on_chat_member_user_added(bot.app_id, event_id, event, message, **kwargs)
+
+
 @oauth.on_bot_event(event_type="oauth:user_info")
 def on_oauth_user_info(bot, event_id, user_info, *args, **kwargs):
     # oauth user_info

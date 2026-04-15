@@ -207,6 +207,10 @@ class GitMayaLarkParser(object):
         logging.info("on_welcome %r", args)
         tasks.send_welcome_message.delay(*args, **kwargs)
 
+    def on_chat_member_user_added(self, *args, **kwargs):
+        logging.info("on_chat_member_user_added %r", args)
+        tasks.on_chat_member_user_added.delay(*args, **kwargs)
+
     def on_comment(self, text, *args, **kwargs):
         logging.info("on_comment %r", text)
         _, topic = self._get_topic_by_args(*args)

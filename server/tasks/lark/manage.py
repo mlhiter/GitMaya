@@ -27,6 +27,7 @@ from utils.lark.manage_repo_detect import ManageRepoDetect
 from utils.lark.manage_success import ManageSuccess
 from utils.lark.repo_info import RepoInfo
 from utils.lark.repo_manual import RepoManual
+from utils.redis import get_client
 
 from .base import (
     build_github_oauth_url,
@@ -155,6 +156,319 @@ def _parse_repo_identity(repo_url: str):
         repo_name = repo_name[:-4]
 
     return org_name, repo_name
+
+
+def _get_chat_member_open_ids(bot, chat_id):
+    if not bot or not chat_id:
+        return []
+
+    open_ids = []
+    page_token = ""
+    while True:
+        url = (
+            f"{bot.host}/open-apis/im/v1/chats/{chat_id}/members"
+            f"?member_id_type=open_id&page_size=200"
+        )
+        if page_token:
+            url = f"{url}&page_token={page_token}"
+
+        result = bot.get(url).json()
+        data = result.get("data", {}) if isinstance(result, dict) else {}
+        for item in data.get("items", []) or []:
+            if not isinstance(item, dict):
+                continue
+            member_type = str(item.get("member_type", "")).lower()
+            if member_type and member_type != "user":
+                continue
+
+            open_id = item.get("member_id") or item.get("open_id") or item.get("id")
+            if isinstance(open_id, str) and open_id.startswith("ou_"):
+                open_ids.append(open_id)
+
+        if not data.get("has_more"):
+            break
+        page_token = data.get("page_token", "")
+        if not page_token:
+            break
+
+    return list(dict.fromkeys(open_ids))
+
+
+def _extract_open_ids_from_member_event(event):
+    if not isinstance(event, dict):
+        return []
+
+    open_ids = []
+
+    def append_open_id(candidate):
+        if isinstance(candidate, str) and candidate.startswith("ou_"):
+            open_ids.append(candidate)
+
+    for key in ["open_id", "member_id", "user_id"]:
+        append_open_id(event.get(key))
+
+    for key in ["open_id_list", "member_id_list", "user_id_list"]:
+        values = event.get(key)
+        if isinstance(values, list):
+            for value in values:
+                append_open_id(value)
+
+    for key in ["members", "users", "added_members", "member_list"]:
+        values = event.get(key)
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            if not isinstance(value, dict):
+                append_open_id(value)
+                continue
+            append_open_id(value.get("open_id"))
+            append_open_id(value.get("member_id"))
+            append_open_id(value.get("user_id"))
+            member_id = value.get("id")
+            if isinstance(member_id, dict):
+                append_open_id(member_id.get("open_id"))
+                append_open_id(member_id.get("id"))
+
+    return list(dict.fromkeys(open_ids))
+
+
+def _extract_chat_id_from_member_event(event, message):
+    candidates = []
+    if isinstance(event, dict):
+        chat_obj = event.get("chat", {})
+        if isinstance(chat_obj, dict):
+            candidates.extend([chat_obj.get("chat_id"), chat_obj.get("id")])
+        candidates.extend(
+            [
+                event.get("chat_id"),
+                event.get("chatId"),
+                event.get("open_chat_id"),
+            ]
+        )
+    if isinstance(message, dict):
+        event_obj = message.get("event", {})
+        if isinstance(event_obj, dict):
+            chat_obj = event_obj.get("chat", {})
+            if isinstance(chat_obj, dict):
+                candidates.extend([chat_obj.get("chat_id"), chat_obj.get("id")])
+            candidates.extend(
+                [
+                    event_obj.get("chat_id"),
+                    event_obj.get("open_chat_id"),
+                ]
+            )
+
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate:
+            return candidate
+    return ""
+
+
+def _acquire_bind_invite_once(team_id: str, open_id: str) -> bool:
+    key = f"lark:github_bind_invite_sent:team:{team_id}:open:{open_id}"
+    try:
+        ttl_seconds = int(
+            os.environ.get("LARK_BIND_INVITE_SENT_TTL_SECONDS", str(365 * 24 * 60 * 60))
+        )
+        if ttl_seconds > 0:
+            return bool(
+                get_client(decode_responses=True).set(
+                    key,
+                    "1",
+                    nx=True,
+                    ex=ttl_seconds,
+                )
+            )
+        return bool(get_client(decode_responses=True).set(key, "1", nx=True))
+    except Exception as e:
+        logging.exception("bind invite dedupe failed: %r", e)
+        return True
+
+
+def _schedule_unbound_member_bind_invite(
+    im_application_id: str,
+    team_id: str,
+    chat_id: str,
+    source: str,
+    target_open_ids: list[str] | None = None,
+):
+    try:
+        notify_unbound_members_bind_once.delay(
+            im_application_id,
+            team_id,
+            chat_id,
+            target_open_ids=target_open_ids,
+            source=source,
+        )
+    except Exception as e:
+        logging.exception("schedule unbound member bind invite failed: %r", e)
+
+
+@celery.task()
+def notify_unbound_members_bind_once(
+    app_id: str,
+    team_id: str,
+    chat_id: str,
+    target_open_ids: list[str] | None = None,
+    source: str = "repo_match",
+):
+    bot, _ = get_bot_by_application_id(app_id)
+    if not bot or not team_id or not chat_id:
+        return {
+            "source": source,
+            "sent": 0,
+            "failed": 0,
+            "skipped": 0,
+            "reason": "invalid_params",
+        }
+
+    host = os.environ.get("DOMAIN")
+    if not host:
+        app.logger.warning(
+            "skip bind invite, DOMAIN missing: app_id=%s team_id=%s chat_id=%s",
+            app_id,
+            team_id,
+            chat_id,
+        )
+        return {
+            "source": source,
+            "sent": 0,
+            "failed": 0,
+            "skipped": 0,
+            "reason": "domain_missing",
+        }
+
+    candidate_open_ids = (
+        [item for item in (target_open_ids or []) if isinstance(item, str)]
+        if target_open_ids
+        else _get_chat_member_open_ids(bot, chat_id)
+    )
+    candidate_open_ids = [
+        open_id for open_id in candidate_open_ids if open_id.startswith("ou_")
+    ]
+    candidate_open_ids = list(dict.fromkeys(candidate_open_ids))
+    if not candidate_open_ids:
+        return {
+            "source": source,
+            "sent": 0,
+            "failed": 0,
+            "skipped": 0,
+            "reason": "no_candidate_members",
+        }
+
+    bound_open_ids = {
+        openid
+        for openid, in db.session.query(IMUser.openid)
+        .join(TeamMember, TeamMember.im_user_id == IMUser.id)
+        .filter(
+            TeamMember.team_id == team_id,
+            TeamMember.status == 0,
+            TeamMember.code_user_id.isnot(None),
+            IMUser.status == 0,
+            IMUser.openid.in_(candidate_open_ids),
+        )
+        .distinct()
+    }
+
+    sent = 0
+    failed = 0
+    skipped = 0
+    for open_id in candidate_open_ids:
+        if open_id in bound_open_ids:
+            skipped += 1
+            continue
+        if not _acquire_bind_invite_once(team_id, open_id):
+            skipped += 1
+            continue
+
+        oauth_url = build_github_oauth_url(
+            host,
+            app_id,
+            open_id,
+            team_id=team_id,
+            secure_state=True,
+        )
+        if not oauth_url:
+            failed += 1
+            continue
+
+        message = ManageFaild(
+            content=f"你所在的项目群已绑定仓库，请点击登录并绑定 GitHub 账号：[{oauth_url}]({oauth_url})",
+            title="🔐 绑定 GitHub 账号",
+        )
+        try:
+            bot.send(open_id, message, receive_id_type="open_id").json()
+            sent += 1
+        except Exception as e:
+            logging.exception("failed to send bind invite: %r", e)
+            failed += 1
+
+    app.logger.info(
+        "bind invite result: source=%s app_id=%s team_id=%s chat_id=%s sent=%s failed=%s skipped=%s",
+        source,
+        app_id,
+        team_id,
+        chat_id,
+        sent,
+        failed,
+        skipped,
+    )
+    return {
+        "source": source,
+        "sent": sent,
+        "failed": failed,
+        "skipped": skipped,
+    }
+
+
+@celery.task()
+def on_chat_member_user_added(app_id, event_id, event, message, *args, **kwargs):
+    chat_id = _extract_chat_id_from_member_event(event, message)
+    if not chat_id:
+        return {"handled": False, "reason": "chat_id_missing"}
+
+    app_scope_ids = get_scoped_im_application_ids(app_id)
+    if not app_scope_ids:
+        app_scope_ids = [app_id]
+
+    added_open_ids = _extract_open_ids_from_member_event(event)
+    bindings = (
+        db.session.query(Repo.id, Team.id, ChatGroup.im_application_id)
+        .join(
+            ChatGroup,
+            ChatGroup.id == Repo.chat_group_id,
+        )
+        .join(
+            CodeApplication,
+            CodeApplication.id == Repo.application_id,
+        )
+        .join(
+            Team,
+            Team.id == CodeApplication.team_id,
+        )
+        .filter(
+            ChatGroup.chat_id == chat_id,
+            ChatGroup.status == 0,
+            ChatGroup.im_application_id.in_(app_scope_ids),
+            Repo.status == 0,
+            CodeApplication.status.in_([0, 1]),
+            Team.status == 0,
+        )
+        .distinct()
+        .all()
+    )
+    if not bindings:
+        return {"handled": False, "reason": "no_repo_binding"}
+
+    for repo_id, team_id, im_application_id in bindings:
+        _schedule_unbound_member_bind_invite(
+            im_application_id,
+            team_id,
+            chat_id,
+            source=f"member_added:{repo_id}",
+            target_open_ids=added_open_ids or None,
+        )
+    return {"handled": True, "repo_count": len(bindings)}
 
 
 @celery.task()
@@ -627,6 +941,12 @@ def create_chat_group_for_repo(
         )
         if replace:
             content = f"{content}\n已移除当前群内其余 {replace_unbind_count} 个仓库绑定"
+        _schedule_unbound_member_bind_invite(
+            bind_application.id,
+            team.id,
+            chat_id,
+            source=f"repo_match:{repo.id}",
+        )
         return bind_result + [
             send_manage_success_message(
                 content,
@@ -736,6 +1056,12 @@ def create_chat_group_for_repo(
                 content, app_id, message_id, *args, bot=bot, **kwargs
             )
         ]
+        _schedule_unbound_member_bind_invite(
+            bind_application.id,
+            team.id,
+            chat_id,
+            source=f"repo_match:{repo.id}",
+        )
         return result
 
     # 持有相同uuid的请求10小时内只可成功创建1个群聊
@@ -812,6 +1138,12 @@ def create_chat_group_for_repo(
             content, app_id, message_id, *args, bot=bot, **kwargs
         )
     ]
+    _schedule_unbound_member_bind_invite(
+        bind_application.id,
+        team.id,
+        chat_id,
+        source=f"repo_match:{repo.id}",
+    )
     return result
 
 
