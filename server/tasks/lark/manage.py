@@ -328,7 +328,7 @@ def notify_unbound_members_bind_once(
     target_open_ids: list[str] | None = None,
     source: str = "repo_match",
 ):
-    bot, _ = get_bot_by_application_id(app_id)
+    bot, application = get_bot_by_application_id(app_id)
     if not bot or not team_id or not chat_id:
         return {
             "source": source,
@@ -337,6 +337,7 @@ def notify_unbound_members_bind_once(
             "skipped": 0,
             "reason": "invalid_params",
         }
+    oauth_app_id = application.app_id if application and application.app_id else app_id
 
     host = os.environ.get("DOMAIN")
     if not host:
@@ -399,7 +400,7 @@ def notify_unbound_members_bind_once(
 
         oauth_url = build_github_oauth_url(
             host,
-            app_id,
+            oauth_app_id,
             open_id,
             team_id=team_id,
             secure_state=True,

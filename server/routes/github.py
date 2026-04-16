@@ -7,6 +7,7 @@ from app import app, db
 from flask import Blueprint, jsonify, make_response, redirect, request, session
 from model.team import create_code_application, create_team
 from model.schema import BindUser, IMApplication, ObjID, TeamMember
+from sqlalchemy import or_
 from tasks.github import pull_github_repo
 from tasks.github.issue import on_issue, on_issue_comment
 from tasks.github.installation import on_installation, on_installation_repositories
@@ -101,7 +102,10 @@ def _bind_lark_user_to_team_member(
         return False
 
     applications_query = db.session.query(IMApplication).filter(
-        IMApplication.app_id == app_id,
+        or_(
+            IMApplication.app_id == app_id,
+            IMApplication.id == app_id,
+        ),
         IMApplication.status.in_([0, 1]),
     )
     if team_id:
