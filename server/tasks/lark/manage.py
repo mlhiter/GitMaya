@@ -36,6 +36,8 @@ from .base import (
     get_team_by_repo,
 )
 
+LARK_CHAT_MEMBERS_PAGE_SIZE = 100
+
 
 def _get_chat_meta(bot, chat_id):
     if not chat_id:
@@ -108,7 +110,7 @@ def _is_chat_owner_or_manager(bot, chat_id, open_id):
     try:
         members_raw = bot.get(
             f"{bot.host}/open-apis/im/v1/chats/{chat_id}/members"
-            "?member_id_type=open_id&page_size=200"
+            f"?member_id_type=open_id&page_size={LARK_CHAT_MEMBERS_PAGE_SIZE}"
         ).json()
         items = members_raw.get("data", {}).get("items", [])
         for item in items:
@@ -167,14 +169,24 @@ def _get_chat_member_open_ids(bot, chat_id):
     while True:
         url = (
             f"{bot.host}/open-apis/im/v1/chats/{chat_id}/members"
-            f"?member_id_type=open_id&page_size=200"
+            f"?member_id_type=open_id&page_size={LARK_CHAT_MEMBERS_PAGE_SIZE}"
         )
         if page_token:
             url = f"{url}&page_token={page_token}"
 
         result = bot.get(url).json()
         data = result.get("data", {}) if isinstance(result, dict) else {}
-        for item in data.get("items", []) or []:
+        if isinstance(result, dict) and result.get("code") not in [0, None]:
+            logging.warning(
+                "get chat members failed: chat_id=%s code=%s msg=%s",
+                chat_id,
+                result.get("code"),
+                result.get("msg"),
+            )
+            break
+
+        items = data.get("items", []) if isinstance(data, dict) else []
+        for item in items or []:
             if not isinstance(item, dict):
                 continue
             member_type = str(item.get("member_type", "")).lower()
@@ -182,6 +194,10 @@ def _get_chat_member_open_ids(bot, chat_id):
                 continue
 
             open_id = item.get("member_id") or item.get("open_id") or item.get("id")
+            if isinstance(open_id, str) and open_id.startswith("ou_"):
+                open_ids.append(open_id)
+
+        for open_id in (data.get("member_id_list", []) if isinstance(data, dict) else []):
             if isinstance(open_id, str) and open_id.startswith("ou_"):
                 open_ids.append(open_id)
 
