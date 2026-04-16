@@ -88,6 +88,95 @@ def _send_lark_oauth_failed(app_id: str, open_id: str, content: str) -> None:
     bot.send(open_id, message, receive_id_type="open_id").json()
 
 
+def _render_oauth_result_page(user_id: str | None) -> object:
+    payload = {
+        "event": "oauth",
+        "data": {
+            "user_id": user_id,
+            "ok": bool(user_id),
+            "error": None if user_id else "oauth_failed",
+        },
+    }
+    success = bool(user_id)
+    title = "GitHub 账号绑定成功" if success else "GitHub 登录失败"
+    description = (
+        "请回到飞书继续操作。你可以直接关闭这个页面。"
+        if success
+        else "请返回飞书执行 /bind 后重试。"
+    )
+    title_color = "#0b7a42" if success else "#a21d1d"
+    border_color = "#9ee6bc" if success else "#f4b1b1"
+    bg_color = "#f4fff8" if success else "#fff6f6"
+
+    html = f"""
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GitMaya OAuth</title>
+  <style>
+    body {{
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f7f8fa;
+      color: #1f2329;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }}
+    .card {{
+      width: min(460px, 100%);
+      background: {bg_color};
+      border: 1px solid {border_color};
+      border-radius: 12px;
+      padding: 24px 20px;
+      box-sizing: border-box;
+      box-shadow: 0 8px 24px rgba(31, 35, 41, 0.08);
+      text-align: center;
+    }}
+    .title {{
+      margin: 0 0 10px;
+      font-size: 22px;
+      line-height: 1.3;
+      color: {title_color};
+      font-weight: 700;
+    }}
+    .desc {{
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.7;
+      color: #4e5969;
+    }}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1 class="title">{title}</h1>
+    <p class="desc">{description}</p>
+  </main>
+  <script>
+    (function() {{
+      const payload = {json.dumps(payload, ensure_ascii=False)};
+      try {{
+        if (window.opener && !window.opener.closed) {{
+          window.opener.postMessage(payload, '*');
+          setTimeout(function() {{ window.close(); }}, 1200);
+        }}
+      }} catch (e) {{
+        console.error(e);
+      }}
+    }})();
+  </script>
+</body>
+</html>
+"""
+    return make_response(html, {"Content-Type": "text/html; charset=utf-8"})
+
+
 def _bind_lark_user_to_team_member(
     app_id: str,
     open_id: str,
@@ -439,37 +528,7 @@ def github_register():
         except Exception as e:
             app.logger.warning(f"Failed to send lark oauth failure message: {e}")
 
-    return make_response(
-        """
-<script>
-try {
-  window.opener.postMessage("""
-        + json.dumps(
-            dict(
-                event="oauth",
-                data={
-                    "user_id": user_id,
-                    "ok": bool(user_id),
-                    "error": None if user_id else "oauth_failed",
-                },
-            )
-        )
-        + """, '*')
-  setTimeout(() => window.close(), 3000)
-} catch(e) {
-  console.error(e)
-  """
-        + (
-            "location.replace('/api/account')"
-            if user_id
-            else "document.body.innerText='GitHub 登录失败，请返回飞书执行 /bind 后重试。'"
-        )
-        + """
-}
-</script>
-                                     """,
-        {"Content-Type": "text/html"},
-    )
+    return _render_oauth_result_page(user_id)
 
 
 @bp.route("/hook", methods=["POST"])
