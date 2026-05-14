@@ -31,6 +31,10 @@ import clsx from 'clsx';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
+const UNRESOLVED_LARK_LABEL = '未同步飞书姓名';
+
+const isUnresolvedLarkLabel = (value?: string | null) => !value || /^o[un]_/.test(value);
+
 const People = () => {
   const { t } = useTranslation();
   const githubControls = useAnimation();
@@ -113,7 +117,14 @@ const People = () => {
     getPlatformMember<Lark.User[]>(team_id, 'lark'),
   );
 
-  const larkUsers = useMemo(() => larkUserData?.data, [larkUserData]);
+  const larkUsers = useMemo(
+    () =>
+      larkUserData?.data?.map((user) => ({
+        ...user,
+        label: isUnresolvedLarkLabel(user.label) ? UNRESOLVED_LARK_LABEL : user.label,
+      })),
+    [larkUserData],
+  );
   const teamMember = useMemo(() => data?.data || [], [data]);
   const total = useMemo(() => {
     return data?.total ? Math.ceil(data.total / size) : 0;

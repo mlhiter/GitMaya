@@ -18,8 +18,30 @@ from model.team import (
 )
 from tasks import get_contact_by_lark_application, get_status_by_id, pull_github_members
 from utils.auth import authenticated
+from utils.lark.user_display import get_lark_display_name
 
 bp = Blueprint("team", __name__, url_prefix="/api/team")
+
+
+def _get_lark_bot(application_id):
+    if not application_id:
+        return None
+    from tasks.lark.base import get_bot_by_application_id
+
+    bot, _ = get_bot_by_application_id(application_id)
+    return bot
+
+
+def _fill_lark_display_names(data):
+    cache = {}
+    for item in data:
+        im_user = item.get("im_user") if isinstance(item, dict) else None
+        if im_user:
+            im_user["name"] = get_lark_display_name(
+                im_user,
+                bot_factory=_get_lark_bot,
+                cache=cache,
+            )
 
 
 @bp.route("/", methods=["GET"])
@@ -61,6 +83,7 @@ def get_team_member_by_team_id(team_id):
 
     current_user = session["user_id"]
     data, total = get_team_member(team_id, current_user, page, size)
+    _fill_lark_display_names(data)
     return jsonify({"code": 0, "msg": "success", "data": data, "total": total})
 
 
@@ -75,6 +98,7 @@ def get_im_user_by_team_id_and_platform(team_id, platform):
 
     current_user = session["user_id"]
     data, total = get_im_user_by_team_id(team_id, page, size)
+    display_cache = {}
     return jsonify(
         {
             "code": 0,
@@ -82,7 +106,11 @@ def get_im_user_by_team_id_and_platform(team_id, platform):
             "data": [
                 {
                     "value": i.id,
-                    "label": i.name or i.email,
+                    "label": get_lark_display_name(
+                        i,
+                        bot_factory=_get_lark_bot,
+                        cache=display_cache,
+                    ),
                     "email": i.email,
                     "avatar": i.avatar,
                 }

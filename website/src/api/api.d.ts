@@ -70,7 +70,15 @@ declare namespace Github {
       user_id: string;
     };
     id: string;
-    im_user: { avatar: string; email: string; id: string; name: string; user_id: string };
+    im_user: {
+      application_id?: string;
+      avatar: string;
+      email: string;
+      id: string;
+      name: string;
+      openid?: string;
+      user_id: string;
+    };
     status: number;
   }
 

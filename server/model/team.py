@@ -246,6 +246,8 @@ def _format_member(item):
             "name": item.im_user.name,
             "email": item.im_user.email,
             "avatar": item.im_user.avatar,
+            "openid": item.im_user.openid,
+            "application_id": item.im_user.application_id,
         }
         if item.im_user
         else None,

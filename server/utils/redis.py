@@ -1,14 +1,36 @@
 import asyncio
 import functools
 import logging
+import os
 import pickle
 import random
 from inspect import iscoroutinefunction
+from urllib.parse import quote
 
 import redis
 from app import app
 
-app.config.setdefault("REDIS_URL", "redis://redis:6379/0")
+
+def _build_redis_url():
+    configured_url = app.config.get("REDIS_URL") or os.environ.get("REDIS_URL")
+    if configured_url:
+        return configured_url
+
+    host = os.environ.get("REDIS_HOST")
+    if not host:
+        return "redis://redis:6379/0"
+
+    port = os.environ.get("REDIS_PORT", "6379")
+    username = os.environ.get("REDIS_USERNAME", "")
+    password = os.environ.get("REDIS_PASSWORD", "")
+    if username or password:
+        auth = f"{quote(username)}:{quote(password)}@"
+    else:
+        auth = ""
+    return f"redis://{auth}{host}:{port}/0"
+
+
+app.config.setdefault("REDIS_URL", _build_redis_url())
 
 client = redis.from_url(app.config["REDIS_URL"], decode_responses=True)
 

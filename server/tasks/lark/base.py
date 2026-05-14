@@ -19,12 +19,13 @@ from model.schema import (
 from sqlalchemy import or_
 from utils.constant import GitHubPermissionError
 from utils.oauth_state import issue_signed_oauth_state
-from utils.redis import RedisStorage
+from utils.redis import RedisStorage, get_client
 
 _MISSING_GITHUB_AUTH_ERRORS = {
     "Failed to get bind user.",
     "Failed to get access token.",
 }
+GITHUB_REBIND_TIP_TTL_SECONDS = 3600
 
 
 def get_scoped_im_application_ids(app_id):
@@ -156,8 +157,50 @@ def _build_rebind_tip_content(app_id: str, open_id: str | None, action_label: st
 
     return (
         f"{mention_prefix}{action_label}失败：当前用户未完成 GitHub 授权或授权已过期。\n"
-        f"{bind_tip}"
+        f"{bind_tip}\n"
+        "请本人打开链接，不要转发或代点；链接会绑定被 @ 的飞书账号。"
     )
+
+
+def _get_message_thread_key(raw_message, fallback_message_id: str | None) -> str:
+    message = (
+        raw_message.get("event", {}).get("message", {})
+        if isinstance(raw_message, dict)
+        else {}
+    )
+    return (
+        message.get("root_id")
+        or message.get("parent_id")
+        or message.get("message_id")
+        or fallback_message_id
+        or "unknown"
+    )
+
+
+def _acquire_rebind_tip_once(
+    app_id: str,
+    open_id: str | None,
+    message_id: str | None,
+    raw_message,
+    action_label: str,
+) -> bool:
+    if not app_id or not open_id:
+        return True
+
+    thread_key = _get_message_thread_key(raw_message, message_id)
+    key = f"lark:github_rebind_tip:{app_id}:{thread_key}:{open_id}:{action_label}"
+    try:
+        return bool(
+            get_client(decode_responses=True).set(
+                key,
+                "1",
+                ex=GITHUB_REBIND_TIP_TTL_SECONDS,
+                nx=True,
+            )
+        )
+    except Exception as e:
+        logging.warning("GitHub rebind tip dedupe failed: %r", e)
+        return True
 
 
 def _send_github_rebind_tip(func_name: str, args):
@@ -168,6 +211,21 @@ def _send_github_rebind_tip(func_name: str, args):
     app_id, message_id, content, raw_message = args[-4:]
     open_id = _extract_lark_sender_open_id(raw_message)
     action_label = _resolve_action_label(func_name)
+    if not _acquire_rebind_tip_once(
+        app_id,
+        open_id,
+        message_id,
+        raw_message,
+        action_label,
+    ):
+        logging.info(
+            "Skip duplicate GitHub rebind tip: app_id=%s message_id=%s open_id=%s action=%s",
+            app_id,
+            message_id,
+            open_id,
+            action_label,
+        )
+        return False
     send_manage_fail_message(
         _build_rebind_tip_content(app_id, open_id, action_label),
         app_id,
